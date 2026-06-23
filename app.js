@@ -24,6 +24,76 @@ let twFilter = 'all';
 let twCurrentValues = {};
 let currentLoanId = null;
 
+// ── Google Form responses sheet ──
+const FORM_SHEET_ID = '1ruI_OrPrhdHlAwWYBWDvJvU7xkxjEE1IldosBpb--SU';
+const FORM_SHEET_NAME = 'Form responses 1';
+const FORM_SHEET_URL = `https://docs.google.com/spreadsheets/d/${FORM_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(FORM_SHEET_NAME)}`;
+
+// formAuditMap: loanId -> { lastAuditDate, loanAmount }
+let formAuditMap = {};
+const PENDING_DAYS = 30;
+
+function loadFormResponses() {
+  return fetch(FORM_SHEET_URL)
+    .then(res => res.text())
+    .then(text => {
+      const jsonStart = text.indexOf('{');
+      const jsonEnd = text.lastIndexOf('}');
+      const json = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
+      const rows = json.table.rows;
+
+      formAuditMap = {};
+      rows.forEach(row => {
+        const c = row.c;
+        if (!c || !c[7]?.v) return;
+        const loanId = String(c[7].v).trim();
+        const auditDateRaw = c[3]?.v;
+        const loanAmount = c[10]?.v ? parseFloat(c[10].v) : null;
+
+        // Parse Google date format Date(yyyy,m,d)
+        let auditDate = null;
+        if (auditDateRaw && typeof auditDateRaw === 'string' && auditDateRaw.startsWith('Date(')) {
+          const parts = auditDateRaw.replace('Date(','').replace(')','').split(',');
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]) + 1;
+          const d = parseInt(parts[2]);
+          auditDate = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        } else if (typeof auditDateRaw === 'number') {
+          // Excel serial date
+          const date = new Date(Math.round((auditDateRaw - 25569) * 86400 * 1000));
+          auditDate = date.toISOString().split('T')[0];
+        }
+
+        if (!auditDate) return;
+
+        // Keep most recent audit per loan
+        if (!formAuditMap[loanId] || auditDate > formAuditMap[loanId].lastAuditDate) {
+          formAuditMap[loanId] = { lastAuditDate: auditDate, loanAmount };
+        }
+      });
+
+      console.log(`Loaded ${Object.keys(formAuditMap).length} loans from form responses`);
+      return formAuditMap;
+    })
+    .catch(err => {
+      console.error('Failed to load form responses:', err);
+      return {};
+    });
+}
+
+function getLoanStatus(loanId, currentLoanAmount) {
+  const record = formAuditMap[loanId];
+  if (!record) return 'pending'; // never audited
+
+  const today = new Date();
+  const lastAudit = new Date(record.lastAuditDate);
+  const daysSince = Math.floor((today - lastAudit) / (1000 * 60 * 60 * 24));
+
+  if (daysSince > PENDING_DAYS) return 'pending';
+  if (currentLoanAmount && record.loanAmount && currentLoanAmount > record.loanAmount) return 'incremental';
+  return 'audited';
+}
+
 // ── Date formatter ──
 function formatDate(dateStr) {
   if (!dateStr || dateStr === "—") return "—";
@@ -85,7 +155,7 @@ function switchSection(id, btn) {
   btn.classList.add('active');
   if (id === 'tear-weight') {
     showLoadingState('tw-tbody', 8, 'Loading from Firestore...');
-    loadAudits().then(() => { renderTWTable(); populateBranchFilter(); });
+    Promise.all([loadAudits(), loadFormResponses()]).then(() => { renderTWTable(); populateBranchFilter(); });
   }
   if (id === 'all-audits') {
     showLoadingState('reports-tbody', 8, 'Loading from Firestore...');
@@ -444,8 +514,13 @@ function renderTWTable(search = '', filter = twFilter) {
   }).length;
   const matched = checked - flagged;
 
+  const pendingCount = loans.filter(a => getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null) === 'pending').length;
+  const incrementalCount = loans.filter(a => getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null) === 'incremental').length;
+
   document.getElementById('tw-stat-row').innerHTML = `
     <div class="stat-chip">${loans.length} loan${loans.length !== 1 ? 's' : ''}</div>
+    <div class="stat-chip" style="background:var(--warning-bg); border-color:var(--warning-border); color:var(--warning);">${pendingCount} pending</div>
+    <div class="stat-chip" style="background:#EBF3FF; border-color:#BFDBFE; color:#1A56DB;">${incrementalCount} incremental</div>
     <div class="stat-chip success">${matched} matched</div>
     <div class="stat-chip danger">${flagged} flagged</div>
   `;
@@ -464,7 +539,9 @@ function renderTWTable(search = '', filter = twFilter) {
     const hasCv = cv !== undefined;
     const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > 0.3;
     const isMatched = hasCv && !isFlagged;
-    if (filter === 'pending') return matchSearch && matchBranch && matchFrom && matchTo && !hasCv;
+    const loanSt = getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null);
+    if (filter === 'pending') return matchSearch && matchBranch && matchFrom && matchTo && loanSt === 'pending';
+    if (filter === 'incremental') return matchSearch && matchBranch && matchFrom && matchTo && loanSt === 'incremental';
     if (filter === 'matched') return matchSearch && matchBranch && matchFrom && matchTo && isMatched;
     if (filter === 'flagged') return matchSearch && matchBranch && matchFrom && matchTo && isFlagged;
     return matchSearch && matchBranch && matchFrom && matchTo;
@@ -498,9 +575,16 @@ function renderTWTable(search = '', filter = twFilter) {
 
     const isSubmitted = a._twSubmitted === true;
 
+    const loanStatus = getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null);
+    const statusBadgeMap = {
+      pending: '<span style="background:#FEF9EC; color:#9B6800; border:1px solid #F3DA87; border-radius:20px; font-size:10px; font-weight:600; padding:2px 8px; white-space:nowrap;">⏳ Pending</span>',
+      incremental: '<span style="background:#EBF3FF; color:#1A56DB; border:1px solid #BFDBFE; border-radius:20px; font-size:10px; font-weight:600; padding:2px 8px; white-space:nowrap;">↑ Incremental</span>',
+      audited: ''
+    };
+
     return `
       <tr class="${isFlagged ? 'flagged' : isMatched ? 'matched' : ''}" data-lid="${a.loanId}">
-        <td><span class="loan-mono">${a.loanId}</span></td>
+        <td><span class="loan-mono">${a.loanId}</span> ${statusBadgeMap[loanStatus] || ''}</td>
         <td style="color:var(--text-2)">${a.branch || '—'}</td>
         <td style="color:var(--text-2)">${formatDate(a.date)}</td>
         <td style="color:var(--text-2)">${a.auditor}</td>
