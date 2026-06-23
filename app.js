@@ -386,13 +386,8 @@ function renderTWTable(search = '', filter = twFilter) {
 }
 
 function renderTWPagination(page, totalPages, total) {
-  let el = document.getElementById('tw-pagination');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'tw-pagination';
-    el.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-top:1px solid var(--border); font-size:13px; color:var(--text-2);';
-    document.querySelector('.tw-table-wrap').after(el);
-  }
+  const el = document.getElementById('tw-pagination');
+  if (!el) return;
   if (totalPages <= 1) { el.innerHTML = ''; return; }
   const start = page * TW_PAGE_SIZE + 1;
   const end = Math.min((page + 1) * TW_PAGE_SIZE, total);
