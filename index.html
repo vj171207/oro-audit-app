@@ -223,8 +223,13 @@
       </div>
 
       <div class="card" style="padding:0; overflow:hidden;">
-        <div class="toolbar">
-          <input type="text" class="search-input" placeholder="Search by loan ID or branch..." oninput="filterTW(this.value)" />
+        <div class="toolbar" style="flex-wrap:wrap; gap:8px;">
+          <input type="text" class="search-input" id="tw-search-input" placeholder="Search by loan ID..." oninput="applyTWFilters()" style="min-width:160px;" />
+          <select class="fs" id="tw-branch-filter" onchange="applyTWFilters()" style="height:34px; font-size:13px; min-width:160px;">
+            <option value="">All branches</option>
+          </select>
+          <input type="date" id="tw-date-from" class="fi" onchange="applyTWFilters()" style="height:34px; font-size:13px; width:140px;" title="From date" />
+          <input type="date" id="tw-date-to" class="fi" onchange="applyTWFilters()" style="height:34px; font-size:13px; width:140px;" title="To date" />
           <div class="filter-group">
             <button class="fbtn active" onclick="setTWFilter('all', this)">All</button>
             <button class="fbtn" onclick="setTWFilter('pending', this)">Pending</button>
