@@ -30,7 +30,7 @@ function formatDate(dateStr) {
   const parts = dateStr.split("-");
   if (parts.length !== 3) return dateStr;
   // DD/MM/YY
-  return parts[2] + "/" + parts[1] + "/" + parts[0].slice(2);
+  return parts[2] + "/" + parts[1] + "/" + parts[0].slice(-2);
 }
 
 // ── Demo loan ──
