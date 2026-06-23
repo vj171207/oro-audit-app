@@ -228,8 +228,15 @@
           <select class="fs" id="tw-branch-filter" onchange="applyTWFilters()" style="height:34px; font-size:13px; min-width:160px;">
             <option value="">All branches</option>
           </select>
-          <input type="date" id="tw-date-from" class="fi" onchange="applyTWFilters()" style="height:34px; font-size:13px; width:140px;" title="From date" />
-          <input type="date" id="tw-date-to" class="fi" onchange="applyTWFilters()" style="height:34px; font-size:13px; width:140px;" title="To date" />
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:12px; color:var(--text-3); white-space:nowrap;">From</span>
+            <input type="date" id="tw-date-from" class="fi" onchange="applyTWFilters()" style="height:34px; font-size:12px; width:130px;" />
+          </div>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:12px; color:var(--text-3); white-space:nowrap;">To</span>
+            <input type="date" id="tw-date-to" class="fi" onchange="applyTWFilters()" style="height:34px; font-size:12px; width:130px;" />
+          </div>
+          <button class="btn-ghost" onclick="clearTWFilters()" style="height:34px; font-size:12px; padding:0 10px; white-space:nowrap;">Clear filters</button>
           <div class="filter-group">
             <button class="fbtn active" onclick="setTWFilter('all', this)">All</button>
             <button class="fbtn" onclick="setTWFilter('pending', this)">Pending</button>
