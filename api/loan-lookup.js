@@ -54,7 +54,8 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Metabase-Session': METABASE_SESSION
+        'X-Metabase-Session': METABASE_SESSION,
+        'Cookie': `metabase.SESSION=${METABASE_SESSION}`
       },
       body: JSON.stringify({
         database: METABASE_DB_ID,
@@ -63,7 +64,13 @@ export default async function handler(req, res) {
       })
     });
 
-    const data = await response.json();
+    const rawText = await response.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch(e) {
+      return res.status(500).json({ error: 'Metabase returned non-JSON: ' + rawText.slice(0, 200) });
+    }
 
     if (data.error) {
       return res.status(500).json({ error: data.error });
