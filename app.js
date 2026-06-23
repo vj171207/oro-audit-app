@@ -116,8 +116,43 @@ function handleFetch() {
   hint.textContent = 'Loading ops data...';
   hint.className = 'field-hint';
   if (id === DEMO_LOAN_ID) { populateOpsCard(id, DEMO_OPS_DATA); return; }
-  // ── REPLACE WITH LIVE OPS DATABASE CALL ──
-  populateOpsCard(id, null);
+
+  // ── METABASE LIVE LOOKUP ──
+  fetch(`/api/loan-lookup?loanId=${encodeURIComponent(id)}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        hint.textContent = data.error === 'Loan not found'
+          ? `No loan found for "${id}" in the database.`
+          : `Error fetching data: ${data.error}`;
+        hint.className = 'field-hint error';
+        hideAuditCards();
+        return;
+      }
+      populateOpsCard(id, {
+        date: data.loanDate || '—',
+        city: data.city || '—',
+        branch: data.branch || '—',
+        agent: '—',
+        maker: '—',
+        packet: '—',
+        amount: data.loanAmount || '—',
+        ornaments: (data.ornaments || []).map(o => ({
+          type: o.type,
+          count: o.count,
+          gw: o.gw,
+          stoneDed: o.stoneDed,
+          karat: o.karat,
+          nw: o.nw,
+          hallmark: '—'
+        }))
+      });
+    })
+    .catch(err => {
+      hint.textContent = 'Failed to connect to database. Check your connection.';
+      hint.className = 'field-hint error';
+      console.error(err);
+    });
 }
 
 function populateOpsCard(loanId, data) {
