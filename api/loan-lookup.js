@@ -1,7 +1,7 @@
 // Vercel serverless function — api/loan-lookup.js
 // Queries Tenmark Prod via Metabase API for a given loan ID
 
-const METABASE_URL = 'https://metabase-mcp.orocorp.in';
+const METABASE_URL = 'https://oro.metabaseapp.com';
 const METABASE_DB_ID = 103;
 
 export default async function handler(req, res) {
