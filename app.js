@@ -659,7 +659,7 @@ function renderAllAudits(search = '') {
 
   // Update result count
   const countEl = document.getElementById('rf-result-count');
-  if (countEl) countEl.textContent = filtered.length !== total ? filtered.length + ' of ' + total + ' shown' : '';
+  if (countEl) countEl.textContent = filtered.length !== total ? filtered.length + ' of ' + total + ' results' : total + ' results';
 
   const tbody = document.getElementById('reports-tbody');
   if (!filtered.length) {
