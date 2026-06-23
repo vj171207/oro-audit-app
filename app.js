@@ -89,7 +89,7 @@ function switchSection(id, btn) {
   }
   if (id === 'all-audits') {
     showLoadingState('reports-tbody', 8, 'Loading from Firestore...');
-    loadAudits().then(() => renderAllAudits());
+    loadAudits().then(() => { renderAllAudits(); populateReportFilters(); });
   }
 }
 
@@ -239,13 +239,6 @@ function renderOrnamentStep() {
   document.getElementById('ornament-step-dots').innerHTML = currentOrnaments.map((_, i) =>
     `<div style="width:10px; height:10px; border-radius:50%; background:${i < idx ? 'var(--success)' : i === idx ? 'var(--gold)' : 'var(--border)'};"></div>`
   ).join('');
-
-  // Update reference row
-  document.getElementById('ref-type').textContent = o.type || '—';
-  document.getElementById('ref-count').textContent = o.count || '—';
-  document.getElementById('ref-gw').textContent = o.gw || '—';
-  document.getElementById('ref-karat').textContent = (o.karat || '—') + ' kt';
-  document.getElementById('ref-nw').textContent = o.nw || '—';
 
   // Clear fields
   ['aud-gw','aud-stone','aud-karat','aud-nw','aud-packet'].forEach(id => {
@@ -644,12 +637,29 @@ function renderAllAudits(search = '') {
   cards[2].textContent = spurious;
   cards[3].textContent = clean;
 
-  const s = search.toLowerCase();
-  const filtered = auditStore.filter(a =>
-    !s || a.loanId.toLowerCase().includes(s) ||
-    (a.branch || '').toLowerCase().includes(s) ||
-    (a.auditor || '').toLowerCase().includes(s)
-  );
+  // Read filter values
+  const loanIdFilter = (document.getElementById('rf-loanid')?.value || '').toLowerCase();
+  const branchFilter = document.getElementById('rf-branch')?.value || '';
+  const auditorFilter = document.getElementById('rf-auditor')?.value || '';
+  const excessFilter = document.getElementById('rf-excess')?.value || '';
+  const spuriousFilter = document.getElementById('rf-spurious')?.value || '';
+  const dateFrom = document.getElementById('rf-date-from')?.value || '';
+  const dateTo = document.getElementById('rf-date-to')?.value || '';
+
+  const filtered = auditStore.filter(a => {
+    if (loanIdFilter && !a.loanId.toLowerCase().includes(loanIdFilter)) return false;
+    if (branchFilter && a.branch !== branchFilter) return false;
+    if (auditorFilter && a.auditor !== auditorFilter) return false;
+    if (excessFilter && a.excessFunding !== excessFilter) return false;
+    if (spuriousFilter && a.spurious !== spuriousFilter) return false;
+    if (dateFrom && a.date < dateFrom) return false;
+    if (dateTo && a.date > dateTo) return false;
+    return true;
+  });
+
+  // Update result count
+  const countEl = document.getElementById('rf-result-count');
+  if (countEl) countEl.textContent = filtered.length !== total ? filtered.length + ' of ' + total + ' shown' : '';
 
   const tbody = document.getElementById('reports-tbody');
   if (!filtered.length) {
@@ -680,6 +690,26 @@ function renderAllAudits(search = '') {
 }
 
 function filterReports(val) { renderAllAudits(val); }
+
+function applyReportFilters() {
+  renderAllAudits();
+}
+
+function clearReportFilters() {
+  ['rf-loanid'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['rf-branch','rf-auditor','rf-excess','rf-spurious'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['rf-date-from','rf-date-to'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  renderAllAudits();
+}
+
+function populateReportFilters() {
+  const branches = [...new Set(auditStore.map(a => a.branch).filter(b => b && b !== '—'))].sort();
+  const auditors = [...new Set(auditStore.map(a => a.auditor).filter(a => a && a !== '—'))].sort();
+  const branchSel = document.getElementById('rf-branch');
+  const auditorSel = document.getElementById('rf-auditor');
+  if (branchSel) branchSel.innerHTML = '<option value="">All branches</option>' + branches.map(b => '<option value="' + b + '">' + b + '</option>').join('');
+  if (auditorSel) auditorSel.innerHTML = '<option value="">All auditors</option>' + auditors.map(a => '<option value="' + a + '">' + a + '</option>').join('');
+}
 
 // ────────────────────────────
 // MODAL
