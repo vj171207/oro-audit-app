@@ -295,23 +295,23 @@
         <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:12px;">
           <div class="fg">
             <label class="fl">Loan ID</label>
-            <input type="text" class="fi" id="rf-loanid" placeholder="e.g. TCGL30663553" oninput="applyReportFilters()" style="height:34px; font-size:13px;" />
+            <input type="text" class="fi" id="rf-loanid" placeholder="e.g. TCGL30663553"  style="height:34px; font-size:13px;" />
           </div>
           <div class="fg">
             <label class="fl">Branch</label>
-            <select class="fs" id="rf-branch" onchange="applyReportFilters()" style="height:34px; font-size:13px;">
+            <select class="fs" id="rf-branch"  style="height:34px; font-size:13px;">
               <option value="">All branches</option>
             </select>
           </div>
           <div class="fg">
             <label class="fl">Auditor</label>
-            <select class="fs" id="rf-auditor" onchange="applyReportFilters()" style="height:34px; font-size:13px;">
+            <select class="fs" id="rf-auditor"  style="height:34px; font-size:13px;">
               <option value="">All auditors</option>
             </select>
           </div>
           <div class="fg">
             <label class="fl">Excess funding</label>
-            <select class="fs" id="rf-excess" onchange="applyReportFilters()" style="height:34px; font-size:13px;">
+            <select class="fs" id="rf-excess"  style="height:34px; font-size:13px;">
               <option value="">All</option>
               <option value="Yes">Yes — flagged</option>
               <option value="No">No — clean</option>
@@ -321,7 +321,7 @@
         <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; align-items:flex-end;">
           <div class="fg">
             <label class="fl">Spurious</label>
-            <select class="fs" id="rf-spurious" onchange="applyReportFilters()" style="height:34px; font-size:13px;">
+            <select class="fs" id="rf-spurious"  style="height:34px; font-size:13px;">
               <option value="">All</option>
               <option value="Yes">Yes — flagged</option>
               <option value="No">No — clean</option>
@@ -329,20 +329,23 @@
           </div>
           <div class="fg">
             <label class="fl">From date</label>
-            <input type="date" class="fi" id="rf-date-from" onchange="applyReportFilters()" style="height:34px; font-size:13px;" />
+            <input type="date" class="fi" id="rf-date-from"  style="height:34px; font-size:13px;" />
           </div>
           <div class="fg">
             <label class="fl">To date</label>
-            <input type="date" class="fi" id="rf-date-to" onchange="applyReportFilters()" style="height:34px; font-size:13px;" />
+            <input type="date" class="fi" id="rf-date-to"  style="height:34px; font-size:13px;" />
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn-ghost" onclick="clearReportFilters()" style="height:34px; font-size:12px; flex:1;">Clear all</button>
-            <div id="rf-result-count" style="display:flex; align-items:center; font-size:12px; color:var(--text-3); white-space:nowrap; padding:0 4px;"></div>
+            <button class="btn-dark" onclick="applyReportFilters()" style="height:34px; font-size:13px; flex:1;">Search now</button>
+            <button class="btn-ghost" onclick="clearReportFilters()" style="height:34px; font-size:12px;">Clear all</button>
           </div>
         </div>
       </div>
 
       <div class="card" style="padding:0; overflow:hidden; margin-top:12px;">
+        <div style="padding:10px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end;">
+          <span id="rf-result-count" style="font-size:12px; color:var(--text-3);"></span>
+        </div>
         <div>
         <div class="table-wrap">
           <table class="data-table" id="reports-table">
