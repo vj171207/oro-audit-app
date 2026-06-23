@@ -120,26 +120,51 @@
         </div>
       </div>
 
-      <!-- Step 3: Audit data form -->
+      <!-- Step 3: Audit data — ornament by ornament -->
       <div class="card hidden" id="card-audit">
-        <div class="card-eyebrow" style="margin-bottom:16px">Audit data — fill in</div>
-
-        <div class="card-eyebrow-sub">Per ornament (repeat for each ornament in the loan)</div>
-        <div class="form-grid-3">
-          <div class="fg"><label class="fl">GW as per audit (g)</label><input type="number" step="0.01" class="fi" placeholder="0.00" /></div>
-          <div class="fg"><label class="fl">Stone deduction (g)</label><input type="number" step="0.01" class="fi" placeholder="0.00" /></div>
-          <div class="fg"><label class="fl">Karat</label><input type="number" step="1" class="fi" placeholder="e.g. 22" /></div>
-          <div class="fg"><label class="fl">NW (g)</label><input type="number" step="0.01" class="fi" placeholder="0.00" /></div>
-          <div class="fg"><label class="fl">Hallmark</label>
-            <select class="fs"><option value="">Select</option><option>Yes</option><option>No</option></select>
+        <!-- Ornament stepper header -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+          <div>
+            <div class="card-eyebrow" style="margin-bottom:4px;">Audit data</div>
+            <div id="ornament-step-label" style="font-size:15px; font-weight:600; color:var(--text-1);">Ornament 1</div>
           </div>
-          <div class="fg"><label class="fl">New / old packet ID</label><input type="text" class="fi" placeholder="Leave blank if unchanged" /></div>
+          <div id="ornament-step-dots" style="display:flex; gap:6px;"></div>
+        </div>
+
+        <!-- Reference row — what ops data says -->
+        <div id="ornament-ref-row" style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); padding:12px 16px; margin-bottom:16px;">
+          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-3); margin-bottom:10px;">As per pledge card</div>
+          <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:12px;">
+            <div><div style="font-size:11px;color:var(--text-3);">Type</div><div style="font-size:13px;font-weight:600;" id="ref-type">—</div></div>
+            <div><div style="font-size:11px;color:var(--text-3);">Count</div><div style="font-size:13px;font-weight:600;" id="ref-count">—</div></div>
+            <div><div style="font-size:11px;color:var(--text-3);">GW (g)</div><div style="font-size:13px;font-weight:600;" id="ref-gw">—</div></div>
+            <div><div style="font-size:11px;color:var(--text-3);">Karat</div><div style="font-size:13px;font-weight:600;" id="ref-karat">—</div></div>
+            <div><div style="font-size:11px;color:var(--text-3);">NW (g)</div><div style="font-size:13px;font-weight:600;" id="ref-nw">—</div></div>
+          </div>
+        </div>
+
+        <!-- Audit input fields for this ornament -->
+        <div class="form-grid-3" id="ornament-audit-fields">
+          <div class="fg"><label class="fl">GW as per audit (g)</label><input type="number" step="0.01" class="fi" id="aud-gw" placeholder="0.00" /></div>
+          <div class="fg"><label class="fl">Stone deduction (g)</label><input type="number" step="0.01" class="fi" id="aud-stone" placeholder="0.00" /></div>
+          <div class="fg"><label class="fl">Karat</label><input type="number" step="1" class="fi" id="aud-karat" placeholder="e.g. 22" /></div>
+          <div class="fg"><label class="fl">NW (g)</label><input type="number" step="0.01" class="fi" id="aud-nw" placeholder="0.00" /></div>
+          <div class="fg"><label class="fl">Hallmark</label>
+            <select class="fs" id="aud-hallmark"><option value="">Select</option><option>Yes</option><option>No</option></select>
+          </div>
+          <div class="fg"><label class="fl">New / old packet ID</label><input type="text" class="fi" id="aud-packet" placeholder="Leave blank if unchanged" /></div>
+        </div>
+
+        <!-- Next ornament / done button -->
+        <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+          <button class="btn-dark" id="ornament-next-btn" onclick="nextOrnament()">Next ornament →</button>
         </div>
 
         <div class="divider"></div>
-        <div class="card-eyebrow-sub">Loan level</div>
 
-        <div class="form-grid-3" style="margin-top:12px">
+        <!-- Loan level fields -->
+        <div class="card-eyebrow-sub" style="margin-bottom:12px;">Loan level</div>
+        <div class="form-grid-3">
           <div class="fg">
             <label class="fl">Excess funding</label>
             <select class="fs" id="excess-select" onchange="toggleExcessAmount()">
@@ -159,26 +184,19 @@
               <option value="Yes">Yes</option>
             </select>
           </div>
-          <div class="fg">
-            <label class="fl">Spurious loss (₹)</label>
-            <input type="number" class="fi" placeholder="If applicable" />
-          </div>
-          <div class="fg">
-            <label class="fl">% Excess funding (loan level)</label>
-            <input type="number" step="0.01" class="fi" placeholder="Auto-calculated" readonly style="background:var(--surface-2); cursor:not-allowed;" />
-          </div>
-          <div class="fg">
-            <label class="fl">LTV</label>
-            <input type="number" step="0.01" class="fi" placeholder="Auto-calculated" readonly style="background:var(--surface-2); cursor:not-allowed;" />
-          </div>
         </div>
-
         <div class="form-grid-1" style="margin-top:12px">
           <div class="fg">
             <label class="fl">Remarks</label>
-            <textarea class="fta" placeholder="Describe physical observations — e.g. Boot less, two stones missing, hookless, bend..."></textarea>
+            <textarea class="fta" id="audit-remarks" placeholder="Describe physical observations — e.g. Boot less, two stones missing, hookless, bend..."></textarea>
           </div>
         </div>
+      </div>
+
+      <!-- Audit preview card (shown after all ornaments filled) -->
+      <div class="card hidden" id="card-audit-preview">
+        <div class="card-eyebrow" style="margin-bottom:16px;">Audit summary — review before submitting</div>
+        <div id="audit-preview-content"></div>
       </div>
 
       <!-- Step 4: Tear weight -->
