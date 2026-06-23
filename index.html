@@ -224,17 +224,17 @@
 
       <div class="card" style="padding:0; overflow:hidden;">
         <div class="toolbar" style="flex-wrap:wrap; gap:8px;">
-          <input type="text" class="search-input" id="tw-search-input" placeholder="Search by loan ID..." oninput="applyTWFilters()" style="min-width:160px;" />
-          <select class="fs" id="tw-branch-filter" onchange="applyTWFilters()" style="height:34px; font-size:13px; min-width:160px;">
+          <input type="text" class="search-input" id="tw-search-input" placeholder="Search by loan ID..." oninput="applyTWFilters(true)" style="min-width:160px;" />
+          <select class="fs" id="tw-branch-filter" onchange="applyTWFilters(true)" style="height:34px; font-size:13px; min-width:160px;">
             <option value="">All branches</option>
           </select>
           <div style="display:flex; align-items:center; gap:4px;">
             <span style="font-size:12px; color:var(--text-3); white-space:nowrap;">From</span>
-            <input type="date" id="tw-date-from" class="fi" onchange="applyTWFilters()" style="height:34px; font-size:12px; width:130px;" />
+            <input type="date" id="tw-date-from" class="fi" onchange="applyTWFilters(true)" style="height:34px; font-size:12px; width:130px;" />
           </div>
           <div style="display:flex; align-items:center; gap:4px;">
             <span style="font-size:12px; color:var(--text-3); white-space:nowrap;">To</span>
-            <input type="date" id="tw-date-to" class="fi" onchange="applyTWFilters()" style="height:34px; font-size:12px; width:130px;" />
+            <input type="date" id="tw-date-to" class="fi" onchange="applyTWFilters(true)" style="height:34px; font-size:12px; width:130px;" />
           </div>
           <button class="btn-ghost" onclick="clearTWFilters()" style="height:34px; font-size:12px; padding:0 10px; white-space:nowrap;">Clear filters</button>
           <div class="filter-group">
@@ -256,6 +256,7 @@
                 <th>Current TW (g)</th>
                 <th>Difference</th>
                 <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody id="tw-tbody">
