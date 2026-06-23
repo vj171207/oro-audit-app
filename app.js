@@ -172,6 +172,9 @@ function populateOpsCard(loanId, data) {
   }
   showAuditCards();
   setStep(2);
+  if (data && data.ornaments && data.ornaments.length > 0) {
+    initOrnamentStepper(data.ornaments);
+  }
 }
 
 function setOpsFields(d) {
@@ -199,13 +202,159 @@ function renderOrnamentTable(ornaments) {
   `).join('');
 }
 
+// ── Ornament stepper state ──
+let currentOrnaments = [];
+let currentOrnamentIndex = 0;
+let auditedOrnaments = [];
+
 function showAuditCards() {
-  ['card-ops','card-audit','card-tw','submit-row'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+  ['card-ops','card-audit'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+  document.getElementById('card-audit-preview').classList.add('hidden');
+  document.getElementById('card-tw').classList.add('hidden');
+  document.getElementById('submit-row').classList.add('hidden');
   document.getElementById('success-bar').classList.add('hidden');
 }
 
 function hideAuditCards() {
-  ['card-ops','card-audit','card-tw','submit-row'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  ['card-ops','card-audit','card-audit-preview','card-tw','submit-row'].forEach(id => document.getElementById(id).classList.add('hidden'));
+}
+
+function initOrnamentStepper(ornaments) {
+  currentOrnaments = ornaments;
+  currentOrnamentIndex = 0;
+  auditedOrnaments = [];
+  renderOrnamentStep();
+}
+
+function renderOrnamentStep() {
+  const o = currentOrnaments[currentOrnamentIndex];
+  const total = currentOrnaments.length;
+  const idx = currentOrnamentIndex;
+
+  // Update label
+  document.getElementById('ornament-step-label').textContent =
+    `Ornament ${idx + 1} of ${total} — ${o.type}`;
+
+  // Update dots
+  document.getElementById('ornament-step-dots').innerHTML = currentOrnaments.map((_, i) =>
+    `<div style="width:10px; height:10px; border-radius:50%; background:${i < idx ? 'var(--success)' : i === idx ? 'var(--gold)' : 'var(--border)'};"></div>`
+  ).join('');
+
+  // Update reference row
+  document.getElementById('ref-type').textContent = o.type || '—';
+  document.getElementById('ref-count').textContent = o.count || '—';
+  document.getElementById('ref-gw').textContent = o.gw || '—';
+  document.getElementById('ref-karat').textContent = (o.karat || '—') + ' kt';
+  document.getElementById('ref-nw').textContent = o.nw || '—';
+
+  // Clear fields
+  ['aud-gw','aud-stone','aud-karat','aud-nw','aud-packet'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('aud-hallmark').value = '';
+
+  // Update button
+  const btn = document.getElementById('ornament-next-btn');
+  btn.textContent = idx === total - 1 ? 'Done — review ✓' : `Next ornament (${idx + 2} of ${total}) →`;
+}
+
+function nextOrnament() {
+  // Save current ornament audit data
+  const o = currentOrnaments[currentOrnamentIndex];
+  auditedOrnaments.push({
+    type: o.type,
+    count: o.count,
+    // Ops data (from PC)
+    gwPC: o.gw,
+    stoneDedPC: o.stoneDed,
+    karatPC: o.karat,
+    nwPC: o.nw,
+    // Audit data
+    gwAudit: document.getElementById('aud-gw').value,
+    stoneDedAudit: document.getElementById('aud-stone').value,
+    karatAudit: document.getElementById('aud-karat').value,
+    nwAudit: document.getElementById('aud-nw').value,
+    hallmark: document.getElementById('aud-hallmark').value,
+    newPacketId: document.getElementById('aud-packet').value,
+  });
+
+  if (currentOrnamentIndex < currentOrnaments.length - 1) {
+    currentOrnamentIndex++;
+    renderOrnamentStep();
+  } else {
+    // All ornaments done — show preview
+    showAuditPreview();
+  }
+}
+
+function showAuditPreview() {
+  document.getElementById('card-audit').classList.add('hidden');
+  document.getElementById('card-audit-preview').classList.remove('hidden');
+  document.getElementById('card-tw').classList.remove('hidden');
+  document.getElementById('submit-row').classList.remove('hidden');
+  setStep(3);
+
+  const remarks = document.getElementById('audit-remarks')?.value || '';
+  const excess = document.getElementById('excess-select')?.value || 'No';
+  const excessAmt = document.getElementById('excess-amount-input')?.value || '';
+  const spurious = document.getElementById('spurious-select')?.value || 'No';
+
+  document.getElementById('audit-preview-content').innerHTML = `
+    <div style="margin-bottom:20px;">
+      <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-3); margin-bottom:12px;">Ornaments audited</div>
+      ${auditedOrnaments.map((o, i) => `
+        <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); padding:12px 16px; margin-bottom:10px;">
+          <div style="font-size:13px; font-weight:600; color:var(--gold); margin-bottom:10px;">${o.type} (Ornament ${i+1})</div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
+            <div>
+              <div style="font-size:11px; color:var(--text-3); margin-bottom:4px;">GW</div>
+              <div style="font-size:12px; display:flex; gap:8px; align-items:center;">
+                <span style="color:var(--text-3);">PC: ${o.gwPC}g</span>
+                <span style="color:var(--text-1); font-weight:600;">Audit: ${o.gwAudit || '—'}g</span>
+                ${o.gwAudit && Math.abs(parseFloat(o.gwAudit) - parseFloat(o.gwPC)) > 0.3 ? '<span style="color:var(--danger); font-size:11px;">⚠ diff</span>' : ''}
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-3); margin-bottom:4px;">Karat</div>
+              <div style="font-size:12px; display:flex; gap:8px;">
+                <span style="color:var(--text-3);">PC: ${o.karatPC}kt</span>
+                <span style="color:var(--text-1); font-weight:600;">Audit: ${o.karatAudit || '—'}kt</span>
+                ${o.karatAudit && parseInt(o.karatAudit) !== parseInt(o.karatPC) ? '<span style="color:var(--danger); font-size:11px;">⚠ diff</span>' : ''}
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-3); margin-bottom:4px;">NW</div>
+              <div style="font-size:12px; display:flex; gap:8px;">
+                <span style="color:var(--text-3);">PC: ${o.nwPC}g</span>
+                <span style="color:var(--text-1); font-weight:600;">Audit: ${o.nwAudit || '—'}g</span>
+                ${o.nwAudit && Math.abs(parseFloat(o.nwAudit) - parseFloat(o.nwPC)) > 0.3 ? '<span style="color:var(--danger); font-size:11px;">⚠ diff</span>' : ''}
+              </div>
+            </div>
+          </div>
+          ${o.hallmark ? `<div style="margin-top:8px; font-size:12px;"><span style="color:var(--text-3);">Hallmark:</span> ${o.hallmark}</div>` : ''}
+          ${o.newPacketId ? `<div style="margin-top:4px; font-size:12px;"><span style="color:var(--text-3);">New packet ID:</span> ${o.newPacketId}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:12px;">
+      <div><div style="font-size:11px; color:var(--text-3);">Excess funding</div><div style="font-size:14px; font-weight:600; color:${excess === 'Yes' ? 'var(--danger)' : 'inherit'}">${excess}${excessAmt ? ' — ₹' + Number(excessAmt).toLocaleString('en-IN') : ''}</div></div>
+      <div><div style="font-size:11px; color:var(--text-3);">Spurious</div><div style="font-size:14px; font-weight:600; color:${spurious === 'Yes' ? 'var(--danger)' : 'inherit'}">${spurious}</div></div>
+    </div>
+    ${remarks ? `<div style="padding:10px 14px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); font-size:13px;">${remarks}</div>` : ''}
+    <button class="btn-ghost" style="margin-top:12px; font-size:12px;" onclick="goBackToAudit()">← Edit audit data</button>
+  `;
+}
+
+function goBackToAudit() {
+  document.getElementById('card-audit-preview').classList.add('hidden');
+  document.getElementById('card-tw').classList.add('hidden');
+  document.getElementById('submit-row').classList.add('hidden');
+  document.getElementById('card-audit').classList.remove('hidden');
+  currentOrnamentIndex = 0;
+  auditedOrnaments = [];
+  renderOrnamentStep();
+  setStep(2);
 }
 
 // ────────────────────────────
@@ -247,7 +396,8 @@ function handleSubmit() {
     city: document.getElementById('f-city').textContent,
     branch: document.getElementById('f-branch').textContent,
     loanAmount: document.getElementById('f-amount').textContent,
-    remarks: document.querySelector('.fta')?.value || '',
+    remarks: document.getElementById('audit-remarks')?.value || '',
+    ornaments: auditedOrnaments,
     submittedAt: new Date().toISOString(),
   };
 
