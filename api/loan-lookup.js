@@ -26,7 +26,7 @@ export default async function handler(req, res) {
   }
 
   const query = `
-    SELECT
+    SELECT DISTINCT ON (go_type.name, g.quantity)
       l.loan_number,
       l.disbursed_amount,
       l.loan_booking_date,
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     WHERE l.loan_number = '${safeLoanId}'
     AND g.is_active = true
     AND g.is_deleted = false
-    ORDER BY g.id;
+    ORDER BY go_type.name, g.quantity, g.id DESC;
   `;
 
   try {
