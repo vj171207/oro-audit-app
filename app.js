@@ -52,7 +52,8 @@ function loadAudits() {
     .orderBy('date', 'desc')
     .get()
     .then(snapshot => {
-      auditStore = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      auditStore = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
       return auditStore;
     })
     .catch(err => {
@@ -253,6 +254,9 @@ function clearForm() {
 // ────────────────────────────
 // TEAR WEIGHT TABLE
 // ────────────────────────────
+const TW_PAGE_SIZE = 15;
+let twCurrentPage = 0;
+
 function renderTWTable(search = '', filter = twFilter) {
   const loans = auditStore;
   const checked = Object.keys(twCurrentValues).length;
@@ -290,11 +294,18 @@ function renderTWTable(search = '', filter = twFilter) {
 
   const tbody = document.getElementById('tw-tbody');
   if (!filtered.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">${loans.length === 0 ? 'No audits in database yet.' : 'No loans match this filter.'}</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">${loans.length === 0 ? 'No audits in database yet.' : 'No loans match this filter.'}</td></tr>`;
+    renderTWPagination(0, 0);
     return;
   }
 
-  tbody.innerHTML = filtered.map(a => {
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / TW_PAGE_SIZE);
+  if (twCurrentPage >= totalPages) twCurrentPage = 0;
+  const pageStart = twCurrentPage * TW_PAGE_SIZE;
+  const pageLoans = filtered.slice(pageStart, pageStart + TW_PAGE_SIZE);
+
+  tbody.innerHTML = pageLoans.map(a => {
     const cv = twCurrentValues[a.loanId];
     const hasCv = cv !== undefined;
     const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > 0.3;
@@ -307,6 +318,8 @@ function renderTWTable(search = '', filter = twFilter) {
     if (isFlagged) badge = '<span class="badge badge-flag">⚠ Mismatch</span>';
     else if (isMatched) badge = '<span class="badge badge-match">✓ Match</span>';
 
+    const isSubmitted = a._twSubmitted === true;
+
     return `
       <tr class="${isFlagged ? 'flagged' : isMatched ? 'matched' : ''}" data-lid="${a.loanId}">
         <td><span class="loan-mono">${a.loanId}</span></td>
@@ -316,24 +329,93 @@ function renderTWTable(search = '', filter = twFilter) {
         <td><strong>${a.tw != null ? Number(a.tw).toFixed(2) : '—'}</strong></td>
         <td>
           <input class="tw-input-cell ${isFlagged ? 'mismatch' : ''}"
+            id="tw-cell-${a.loanId}"
             type="number" step="0.01"
             value="${hasCv ? cv : ''}" placeholder="—"
-            onchange="onTWChange('${a.loanId}', this)" />
+            onchange="onTWChange('${a.loanId}', this)"
+            ${isSubmitted ? 'disabled' : ''} />
         </td>
         <td>${diffDisplay}</td>
         <td>${badge}</td>
+        <td>
+          ${isSubmitted
+            ? '<span style="color:var(--success); font-size:12px; font-weight:500;">✓ Saved</span>'
+            : `<button class="btn-ghost" style="height:28px; font-size:12px; padding:0 10px;"
+                onclick="submitTW('${a.loanId}')">Save</button>`
+          }
+        </td>
       </tr>`;
   }).join('');
+
+  renderTWPagination(twCurrentPage, totalPages, filtered.length);
+}
+
+function renderTWPagination(page, totalPages, total) {
+  let el = document.getElementById('tw-pagination');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'tw-pagination';
+    el.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-top:1px solid var(--border); font-size:13px; color:var(--text-2);';
+    document.querySelector('.tw-table-wrap').after(el);
+  }
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+  const start = page * TW_PAGE_SIZE + 1;
+  const end = Math.min((page + 1) * TW_PAGE_SIZE, total);
+  el.innerHTML = `
+    <span>Showing ${start}–${end} of ${total} loans</span>
+    <div style="display:flex; gap:6px;">
+      <button class="btn-ghost" style="height:30px; font-size:12px; padding:0 12px;"
+        onclick="changeTWPage(-1)" ${page === 0 ? 'disabled' : ''}>← Prev</button>
+      <span style="display:flex; align-items:center; padding:0 8px; font-weight:500;">Page ${page+1} / ${totalPages}</span>
+      <button class="btn-ghost" style="height:30px; font-size:12px; padding:0 12px;"
+        onclick="changeTWPage(1)" ${page >= totalPages-1 ? 'disabled' : ''}>Next →</button>
+    </div>
+  `;
+}
+
+function changeTWPage(dir) {
+  twCurrentPage += dir;
+  applyTWFilters();
 }
 
 function onTWChange(loanId, input) {
   const val = parseFloat(input.value);
   if (!isNaN(val) && val > 0) twCurrentValues[loanId] = val;
   else delete twCurrentValues[loanId];
+  // Re-render just the diff/status without full re-render
   applyTWFilters();
 }
 
-function applyTWFilters() {
+function submitTW(loanId) {
+  const newTW = twCurrentValues[loanId];
+  if (!newTW || isNaN(newTW) || newTW <= 0) {
+    alert('Please enter a tare weight value before saving.');
+    return;
+  }
+
+  const audit = auditStore.find(a => a.loanId === loanId);
+  if (!audit || !audit.id) { alert('Loan not found.'); return; }
+
+  const btn = document.querySelector(`tr[data-lid="${loanId}"] button`);
+  if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
+
+  db.collection('audits').doc(audit.id)
+    .update({ tw: newTW, twUpdatedAt: new Date().toISOString() })
+    .then(() => {
+      audit.tw = newTW;
+      audit._twSubmitted = true;
+      delete twCurrentValues[loanId];
+      applyTWFilters();
+    })
+    .catch(err => {
+      console.error('Failed to save TW:', err);
+      alert('Failed to save. Check your connection.');
+      if (btn) { btn.textContent = 'Save'; btn.disabled = false; }
+    });
+}
+
+function applyTWFilters(resetPage = false) {
+  if (resetPage) twCurrentPage = 0;
   const search = document.getElementById('tw-search-input')?.value || '';
   renderTWTable(search, twFilter);
 }
