@@ -249,6 +249,97 @@ document.getElementById('loan-id-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') handleFetch();
 });
 
+// ── Lookup tab switcher ──
+function switchLookupTab(tab) {
+  const browse = document.getElementById('lookup-browse');
+  const direct = document.getElementById('lookup-direct');
+  const tabBrowse = document.getElementById('tab-browse');
+  const tabDirect = document.getElementById('tab-direct');
+
+  if (tab === 'browse') {
+    browse.style.display = 'block';
+    direct.style.display = 'none';
+    tabBrowse.style.borderBottomColor = 'var(--gold)';
+    tabBrowse.style.color = 'var(--gold)';
+    tabDirect.style.borderBottomColor = 'transparent';
+    tabDirect.style.color = 'var(--text-3)';
+  } else {
+    browse.style.display = 'none';
+    direct.style.display = 'block';
+    tabBrowse.style.borderBottomColor = 'transparent';
+    tabBrowse.style.color = 'var(--text-3)';
+    tabDirect.style.borderBottomColor = 'var(--gold)';
+    tabDirect.style.color = 'var(--gold)';
+    setTimeout(() => document.getElementById('loan-id-input').focus(), 100);
+  }
+}
+
+// ── Browse loans by date range ──
+function browseLoans() {
+  const from = document.getElementById('browse-from').value;
+  const to = document.getElementById('browse-to').value;
+  const hint = document.getElementById('browse-hint');
+
+  if (!from || !to) {
+    hint.textContent = 'Please select both a from and to date.';
+    hint.style.color = 'var(--danger)';
+    return;
+  }
+  if (from > to) {
+    hint.textContent = 'From date cannot be after To date.';
+    hint.style.color = 'var(--danger)';
+    return;
+  }
+
+  hint.textContent = 'Loading loans from Metabase...';
+  hint.style.color = 'var(--text-3)';
+
+  // Query Metabase via loan-lookup API for loans in date range
+  fetch(`/api/browse-loans?from=${from}&to=${to}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        hint.textContent = 'Error: ' + data.error;
+        hint.style.color = 'var(--danger)';
+        return;
+      }
+
+      const loans = data.loans || [];
+      hint.textContent = '';
+
+      if (!loans.length) {
+        document.getElementById('browse-results').style.display = 'block';
+        document.getElementById('browse-count').textContent = 'No loans found in this date range.';
+        document.getElementById('browse-tbody').innerHTML =
+          '<tr class="empty-row"><td colspan="5">No new pledge cards in this period.</td></tr>';
+        return;
+      }
+
+      document.getElementById('browse-count').textContent = loans.length + ' loan' + (loans.length !== 1 ? 's' : '') + ' found';
+      document.getElementById('browse-tbody').innerHTML = loans.map(l => `
+        <tr class="row-clickable" onclick="selectBrowsedLoan('${l.loanNumber}')">
+          <td><span class="loan-mono">${l.loanNumber}</span></td>
+          <td style="color:var(--text-2)">${l.branch || '—'}</td>
+          <td style="color:var(--text-2)">${l.loanDate || '—'}</td>
+          <td>₹${Number(l.loanAmount).toLocaleString('en-IN')}</td>
+          <td><span style="color:var(--gold); font-size:12px; font-weight:500;">Select →</span></td>
+        </tr>
+      `).join('');
+      document.getElementById('browse-results').style.display = 'block';
+    })
+    .catch(err => {
+      hint.textContent = 'Failed to load. Check your connection.';
+      hint.style.color = 'var(--danger)';
+    });
+}
+
+function selectBrowsedLoan(loanId) {
+  // Switch to direct tab and populate loan ID, then fetch
+  switchLookupTab('direct');
+  document.getElementById('loan-id-input').value = loanId;
+  handleFetch();
+}
+
 function handleFetch() {
   const id = document.getElementById('loan-id-input').value.trim().toUpperCase();
   const hint = document.getElementById('lookup-hint');
