@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     const jsonStart = text.indexOf('{');
     const jsonEnd = text.lastIndexOf('}');
     if (jsonStart === -1) {
-      return res.status(500).json({ error: 'Sheet not accessible or empty. Raw: ' + text.slice(0, 200) });
+      return res.status(500).json({ error: 'Sheet not accessible. Raw response: ' + text.slice(0, 500) });
     }
     const cleaned = text.substring(jsonStart, jsonEnd + 1);
     const json = JSON.parse(cleaned);
