@@ -309,7 +309,7 @@ function loadUnauditedLoans() {
           <td><span class="loan-mono">${l.loanNumber}</span></td>
           <td style="color:var(--text-2)">${l.branch || '—'}</td>
           <td style="color:var(--text-2)">${l.city || '—'}</td>
-          <td style="color:var(--text-2)">${l.loanDate || '—'}</td>
+          <td style="color:var(--text-2)">${l.loanDate ? formatDate(l.loanDate) : '—'}</td>
           <td>${l.loanAmount ? '₹' + Number(l.loanAmount).toLocaleString('en-IN') : '—'}</td>
           <td><span style="color:var(--gold); font-size:12px; font-weight:500;">Start audit →</span></td>
         </tr>
@@ -395,7 +395,7 @@ function browseLoans() {
         <tr class="row-clickable" onclick="selectBrowsedLoan('${l.loanNumber}')">
           <td><span class="loan-mono">${l.loanNumber}</span></td>
           <td style="color:var(--text-2)">${l.branch || '—'}</td>
-          <td style="color:var(--text-2)">${l.loanDate || '—'}</td>
+          <td style="color:var(--text-2)">${l.loanDate ? formatDate(l.loanDate) : '—'}</td>
           <td>₹${Number(l.loanAmount).toLocaleString('en-IN')}</td>
           <td><span style="color:var(--gold); font-size:12px; font-weight:500;">Select →</span></td>
         </tr>
