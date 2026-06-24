@@ -58,6 +58,7 @@ async function getActiveLoansFromMetabase() {
     WHERE g.is_active = true
     AND g.is_deleted = false
     AND l.loan_number IS NOT NULL
+    AND l.status IN ('GOLD_STORED', 'LOAN_AMOUNT_TRANSFERRED')
     ORDER BY l.loan_booking_date DESC;
   `;
 
