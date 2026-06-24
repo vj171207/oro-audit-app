@@ -769,7 +769,15 @@ let twCurrentPage = 0;
 
 function renderTWTable(search = '', filter = twFilter) {
   // Only show loans that have a tare weight recorded — properly audited
-  const loans = auditStore.filter(a => a.tw !== null && a.tw !== undefined && a.source !== 'metabase-sync');
+  // Deduplicate by loan ID — keep most recent audit per loan
+  const audited = auditStore.filter(a => a.tw !== null && a.tw !== undefined && a.source !== 'metabase-sync');
+  const loanMap = {};
+  audited.forEach(a => {
+    if (!loanMap[a.loanId] || a.date > loanMap[a.loanId].date) {
+      loanMap[a.loanId] = a;
+    }
+  });
+  const loans = Object.values(loanMap).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const checked = Object.keys(twCurrentValues).length;
   const flagged = Object.entries(twCurrentValues).filter(([id, v]) => {
     const a = loans.find(x => x.loanId === id);
@@ -969,7 +977,16 @@ function populateBranchFilter() {
 // ALL AUDITS
 // ────────────────────────────
 function renderAllAudits(search = '') {
-  const total = auditStore.length;
+  // Deduplicate by loan ID — keep most recent audit per loan
+  const loanMapAll = {};
+  auditStore.forEach(a => {
+    if (a.source === 'metabase-sync') return;
+    if (!loanMapAll[a.loanId] || (a.date || '') > (loanMapAll[a.loanId].date || '')) {
+      loanMapAll[a.loanId] = a;
+    }
+  });
+  const deduped = Object.values(loanMapAll);
+  const total = deduped.length;
   const excess = auditStore.filter(a => a.excessFunding === 'Yes').length;
   const spurious = auditStore.filter(a => a.spurious === 'Yes').length;
   const clean = auditStore.filter(a => a.excessFunding === 'No' && a.spurious === 'No').length;
@@ -989,7 +1006,7 @@ function renderAllAudits(search = '') {
   const dateFrom = document.getElementById('rf-date-from')?.value || '';
   const dateTo = document.getElementById('rf-date-to')?.value || '';
 
-  const filtered = auditStore.filter(a => {
+  const filtered = deduped.filter(a => {
     if (loanIdFilter && !a.loanId.toLowerCase().includes(loanIdFilter)) return false;
     if (branchFilter && a.branch !== branchFilter) return false;
     if (auditorFilter && a.auditor !== auditorFilter) return false;
