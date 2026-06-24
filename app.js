@@ -290,9 +290,8 @@ function loadUnauditedLoans() {
         return;
       }
 
-      // Show ALL active loans — re-audit exercise mode
-      // TODO: after re-audit week, restore: .filter(l => !auditedIds.has(l.loanNumber))
-      const unaudited = (data.loans || []);
+      // Only show loans that have never been audited through the app
+      const unaudited = (data.loans || []).filter(l => !auditedIds.has(l.loanNumber));
 
       if (!unaudited.length) {
         document.getElementById('unaudited-count').textContent = 'All active loans have been audited.';
@@ -303,7 +302,7 @@ function loadUnauditedLoans() {
       }
 
       document.getElementById('unaudited-count').textContent =
-        unaudited.length + ' active loan' + (unaudited.length !== 1 ? 's' : '') + ' — click any to begin audit';
+        unaudited.length + ' unaudited loan' + (unaudited.length !== 1 ? 's' : '') + ' — click any to begin audit';
 
       document.getElementById('unaudited-tbody').innerHTML = unaudited.map(l => `
         <tr class="row-clickable" onclick="selectBrowsedLoan('${l.loanNumber}')">
@@ -557,6 +556,7 @@ function renderOrnamentStep() {
     if (el) el.value = '';
   });
   document.getElementById('aud-hallmark').value = '';
+  const audSpurious = document.getElementById('aud-spurious'); if (audSpurious) audSpurious.value = 'No';
   document.getElementById('aud-nw').value = '';
 
   // Update button
@@ -581,6 +581,7 @@ function nextOrnament() {
     karatAudit: document.getElementById('aud-karat').value,
     nwAudit: document.getElementById('aud-nw').value,
     hallmark: document.getElementById('aud-hallmark').value,
+    spurious: document.getElementById('aud-spurious')?.value || 'No',
     newPacketId: document.getElementById('aud-packet').value,
   });
 
@@ -638,6 +639,7 @@ function showAuditPreview() {
             </div>
           </div>
           ${o.hallmark ? `<div style="margin-top:8px; font-size:12px;"><span style="color:var(--text-3);">Hallmark:</span> ${o.hallmark}</div>` : ''}
+          ${o.spurious === 'Yes' ? `<div style="margin-top:4px; font-size:12px; color:var(--danger); font-weight:500;">⚠ Spurious</div>` : ''}
           ${o.newPacketId ? `<div style="margin-top:4px; font-size:12px;"><span style="color:var(--text-3);">New packet ID:</span> ${o.newPacketId}</div>` : ''}
         </div>
       `).join('')}
@@ -714,7 +716,8 @@ function handleSubmit() {
     tw,
     excessFunding: document.getElementById('excess-select').value,
     excessAmount: parseFloat(document.getElementById('excess-amount-input')?.value) || 0,
-    spurious: document.getElementById('spurious-select').value,
+    spurious: auditedOrnaments.some(o => o.spurious === 'Yes') ? 'Yes' : 'No',
+    spuriousOrnaments: auditedOrnaments.filter(o => o.spurious === 'Yes').map(o => o.type),
     city: document.getElementById('f-city').textContent,
     branch: document.getElementById('f-branch').textContent,
     loanAmount: document.getElementById('f-amount').textContent,
@@ -765,8 +768,8 @@ const TW_PAGE_SIZE = 15;
 let twCurrentPage = 0;
 
 function renderTWTable(search = '', filter = twFilter) {
-  // Only show loans that have been actually audited (not just synced from Metabase)
-  const loans = auditStore.filter(a => a.source !== 'metabase-sync' && a.auditor && a.auditor !== '—');
+  // Only show loans that have a tare weight recorded — properly audited
+  const loans = auditStore.filter(a => a.tw !== null && a.tw !== undefined && a.source !== 'metabase-sync');
   const checked = Object.keys(twCurrentValues).length;
   const flagged = Object.entries(twCurrentValues).filter(([id, v]) => {
     const a = loans.find(x => x.loanId === id);
