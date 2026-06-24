@@ -28,6 +28,7 @@ export default async function handler(req, res) {
     WHERE g.is_active = true
     AND g.is_deleted = false
     AND l.loan_number IS NOT NULL
+    AND l.status IN ('GOLD_STORED', 'LOAN_AMOUNT_TRANSFERRED')
     GROUP BY l.loan_number, l.disbursed_amount, l.loan_booking_date, b.name, c.name
     ORDER BY l.loan_booking_date DESC;
   `;
