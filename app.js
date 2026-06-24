@@ -146,6 +146,80 @@ function saveAudit(audit) {
 }
 
 // ────────────────────────────
+// MANUAL SYNC
+// ────────────────────────────
+function triggerManualSync() {
+  document.getElementById('sync-modal').classList.remove('hidden');
+  document.getElementById('sync-password-input').value = '';
+  document.getElementById('sync-result').innerHTML = '';
+  const btn = document.getElementById('sync-run-btn');
+  btn.textContent = 'Run sync';
+  btn.disabled = false;
+  setTimeout(() => document.getElementById('sync-password-input').focus(), 100);
+}
+
+function closeSyncModal(e) {
+  if (!e || e.target === document.getElementById('sync-modal')) {
+    document.getElementById('sync-modal').classList.add('hidden');
+  }
+}
+
+function runSync() {
+  const password = document.getElementById('sync-password-input').value.trim();
+  if (!password) {
+    document.getElementById('sync-result').innerHTML = '<span style="color:var(--danger);">Please enter the sync password.</span>';
+    return;
+  }
+
+  const btn = document.getElementById('sync-run-btn');
+  btn.textContent = 'Syncing...';
+  btn.disabled = true;
+  document.getElementById('sync-result').innerHTML = '<span style="color:var(--text-3);">Querying Metabase for new loans...</span>';
+
+  fetch('/api/sync-loans', {
+    headers: { 'Authorization': `Bearer ${password}` }
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.error === 'Unauthorized') {
+        document.getElementById('sync-result').innerHTML = '<span style="color:var(--danger);">❌ Incorrect password.</span>';
+        btn.textContent = 'Run sync';
+        btn.disabled = false;
+        return;
+      }
+      if (data.error) {
+        document.getElementById('sync-result').innerHTML = `<span style="color:var(--danger);">❌ Error: ${data.error}</span>`;
+        btn.textContent = 'Run sync';
+        btn.disabled = false;
+        return;
+      }
+      document.getElementById('sync-result').innerHTML = `
+        <span style="color:var(--success);">✓ Sync complete</span><br>
+        <span style="color:var(--text-2); font-size:12px;">
+          ${data.newLoansAdded} new loan${data.newLoansAdded !== 1 ? 's' : ''} added &nbsp;·&nbsp;
+          ${data.totalActive} total active in Metabase &nbsp;·&nbsp;
+          ${data.existingInFirestore} already in app
+        </span>
+      `;
+      btn.textContent = 'Done ✓';
+      // Reload audits if on tear weight
+      if (data.newLoansAdded > 0) {
+        loadAudits().then(() => {
+          if (document.getElementById('tear-weight').classList.contains('active')) {
+            renderTWTable();
+            populateBranchFilter();
+          }
+        });
+      }
+    })
+    .catch(err => {
+      document.getElementById('sync-result').innerHTML = `<span style="color:var(--danger);">❌ Failed to connect. Check your network.</span>`;
+      btn.textContent = 'Run sync';
+      btn.disabled = false;
+    });
+}
+
+// ────────────────────────────
 // NAVIGATION
 // ────────────────────────────
 function switchSection(id, btn) {
