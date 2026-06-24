@@ -82,8 +82,22 @@ function loadFormResponses() {
 }
 
 function getLoanStatus(loanId, currentLoanAmount) {
+  // Step 1 — Check Firestore first (audits submitted via app)
+  const firestoreRecords = auditStore.filter(a => a.loanId === loanId && a.source !== 'metabase-sync');
+  
+  if (firestoreRecords.length > 0) {
+    // Find most recent audit date in Firestore
+    const mostRecent = firestoreRecords.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+    const today = new Date();
+    const lastAudit = new Date(mostRecent.date);
+    const daysSince = Math.floor((today - lastAudit) / (1000 * 60 * 60 * 24));
+    if (daysSince <= PENDING_DAYS) return 'audited';
+    return 'pending';
+  }
+
+  // Step 2 — Fall back to Google Sheet (older loans audited via form)
   const record = formAuditMap[loanId];
-  if (!record) return 'pending'; // never audited
+  if (!record) return 'pending'; // never audited anywhere
 
   const today = new Date();
   const lastAudit = new Date(record.lastAuditDate);
