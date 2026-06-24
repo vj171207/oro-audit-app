@@ -476,11 +476,12 @@ function renderOrnamentStep() {
   ).join('');
 
   // Clear fields
-  ['aud-gw','aud-stone','aud-karat','aud-nw','aud-packet'].forEach(id => {
+  ['aud-gw','aud-stone','aud-karat','aud-packet'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
   document.getElementById('aud-hallmark').value = '';
+  document.getElementById('aud-nw').value = '';
 
   // Update button
   const btn = document.getElementById('ornament-next-btn');
@@ -583,6 +584,23 @@ function goBackToAudit() {
   auditedOrnaments = [];
   renderOrnamentStep();
   setStep(2);
+}
+
+// ────────────────────────────
+// AUTO CALCULATE NW
+// ────────────────────────────
+function autoCalcNW() {
+  const gw = parseFloat(document.getElementById('aud-gw').value);
+  const stone = parseFloat(document.getElementById('aud-stone').value) || 0;
+  const karat = parseFloat(document.getElementById('aud-karat').value);
+  const nwInput = document.getElementById('aud-nw');
+
+  if (!isNaN(gw) && !isNaN(karat) && karat > 0) {
+    const nw = ((gw - stone) * karat) / 22;
+    nwInput.value = nw.toFixed(2);
+  } else {
+    nwInput.value = '';
+  }
 }
 
 // ────────────────────────────
