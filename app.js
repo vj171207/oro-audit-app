@@ -987,9 +987,9 @@ function renderAllAudits(search = '') {
   });
   const deduped = Object.values(loanMapAll);
   const total = deduped.length;
-  const excess = auditStore.filter(a => a.excessFunding === 'Yes').length;
-  const spurious = auditStore.filter(a => a.spurious === 'Yes').length;
-  const clean = auditStore.filter(a => a.excessFunding === 'No' && a.spurious === 'No').length;
+  const excess = deduped.filter(a => a.excessFunding === 'Yes').length;
+  const spurious = deduped.filter(a => a.spurious === 'Yes').length;
+  const clean = deduped.filter(a => a.excessFunding === 'No' && a.spurious === 'No').length;
 
   const cards = document.getElementById('summary-grid').querySelectorAll('.sc-value');
   cards[0].textContent = total;
