@@ -402,13 +402,21 @@
             </select>
           </div>
         </div>
-        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; align-items:flex-end;">
+        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:12px; align-items:flex-end;">
           <div class="fg">
             <label class="fl">Spurious</label>
             <select class="fs" id="rf-spurious" style="height:34px; font-size:13px;">
               <option value="">All</option>
               <option value="Yes">Yes — flagged</option>
               <option value="No">No — clean</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Loan status</label>
+            <select class="fs" id="rf-loanstatus" style="height:34px; font-size:13px;">
+              <option value="">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
           <div class="fg">
