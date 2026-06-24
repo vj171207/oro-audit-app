@@ -24,10 +24,28 @@ let twFilter = 'all';
 let twCurrentValues = {};
 let currentLoanId = null;
 
+// ── Active loans cache (fetched from Metabase on load) ──
+let activeLoanIds = new Set();
+
+function loadActiveLoans() {
+  return fetch('/api/active-loans')
+    .then(res => res.json())
+    .then(data => {
+      activeLoanIds = new Set((data.loans || []).map(l => l.loanNumber));
+      return activeLoanIds;
+    })
+    .catch(err => {
+      console.error('Failed to load active loans:', err);
+      return new Set();
+    });
+}
+
 // ── Pending cycle ──
 const PENDING_DAYS = 30;
 
 function getLoanStatus(loanId) {
+  // Only active loans can be pending — inactive loans have no pending state
+  if (!activeLoanIds.has(loanId)) return 'inactive';
   const firestoreRecords = auditStore.filter(a => a.loanId === loanId && a.source !== 'metabase-sync');
   if (firestoreRecords.length === 0) return 'pending';
   const mostRecent = firestoreRecords.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
@@ -697,7 +715,7 @@ let twCurrentPage = 0;
 function renderTWTable(search = '', filter = twFilter) {
   // Only show loans that have a tare weight recorded — properly audited
   // Deduplicate by loan ID — keep most recent audit per loan
-  const audited = auditStore.filter(a => a.tw !== null && a.tw !== undefined && a.source !== 'metabase-sync');
+  const audited = auditStore.filter(a => a.tw !== null && a.tw !== undefined && a.source !== 'metabase-sync' && activeLoanIds.has(a.loanId));
   const loanMap = {};
   audited.forEach(a => {
     if (!loanMap[a.loanId] || a.date > loanMap[a.loanId].date) {
@@ -712,7 +730,7 @@ function renderTWTable(search = '', filter = twFilter) {
   }).length;
   const matched = checked - flagged;
 
-  const pendingCount = loans.filter(a => getLoanStatus(a.loanId) === 'pending').length;
+  const pendingCount = loans.filter(a => getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null) === 'pending').length;
 
   document.getElementById('tw-stat-row').innerHTML = `
     <div class="stat-chip">${loans.length} loan${loans.length !== 1 ? 's' : ''}</div>
@@ -735,7 +753,7 @@ function renderTWTable(search = '', filter = twFilter) {
     const hasCv = cv !== undefined;
     const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > 0.3;
     const isMatched = hasCv && !isFlagged;
-    const loanSt = getLoanStatus(a.loanId);
+    const loanSt = getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null);
     if (filter === 'pending') return matchSearch && matchBranch && matchFrom && matchTo && loanSt === 'pending';
     if (filter === 'matched') return matchSearch && matchBranch && matchFrom && matchTo && isMatched;
     if (filter === 'flagged') return matchSearch && matchBranch && matchFrom && matchTo && isFlagged;
@@ -770,10 +788,11 @@ function renderTWTable(search = '', filter = twFilter) {
 
     const isSubmitted = a._twSubmitted === true;
 
-    const loanStatus = getLoanStatus(a.loanId);
+    const loanStatus = getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null);
     const statusBadgeMap = {
       pending: '<span style="background:#FEF9EC; color:#9B6800; border:1px solid #F3DA87; border-radius:20px; font-size:10px; font-weight:600; padding:2px 8px; white-space:nowrap;">⏳ Pending</span>',
-      audited: ''
+      audited: '',
+      inactive: ''
     };
 
     return `
@@ -950,7 +969,7 @@ function renderAllAudits(search = '') {
 
   const tbody = document.getElementById('reports-tbody');
   if (!filtered.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">${total === 0 ? 'No audits in database yet.' : 'No results.'}</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">${total === 0 ? 'No audits in database yet.' : 'No results.'}</td></tr>`;
     return;
   }
 
@@ -962,6 +981,11 @@ function renderAllAudits(search = '') {
       ? `<span class="badge badge-flag">Yes</span>`
       : `<span class="badge-no">No</span>`;
 
+    const isActive = activeLoanIds.has(a.loanId);
+    const loanStatusBadge = isActive
+      ? '<span style="background:#EDFAF3; color:#1A7A4A; border:1px solid #A3E0BF; border-radius:20px; font-size:10px; font-weight:600; padding:2px 8px;">Active</span>'
+      : '<span style="background:#F5F5F5; color:#777; border:1px solid #DDD; border-radius:20px; font-size:10px; font-weight:600; padding:2px 8px;">Inactive</span>';
+
     return `
       <tr class="row-clickable" onclick="openModal('${a.id}')">
         <td><span class="loan-mono">${a.loanId}</span></td>
@@ -972,6 +996,7 @@ function renderAllAudits(search = '') {
         <td>${excessBadge}</td>
         <td>${spurBadge}</td>
         <td><strong>${a.tw != null ? Number(a.tw).toFixed(2) : '—'}</strong></td>
+        <td>${loanStatusBadge}</td>
       </tr>`;
   }).join('');
 }
@@ -1035,7 +1060,7 @@ function closeModal(e) {
 // ── INIT ──
 showLoadingState('reports-tbody', 8, 'Loading audits from Firestore...');
 showLoadingState('tw-tbody', 8, 'Loading...');
-loadAudits().then(() => {
+Promise.all([loadAudits(), loadActiveLoans()]).then(() => {
   if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
   loadUnauditedLoans();
 });
