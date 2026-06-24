@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   }
 
   const query = `
-    SELECT DISTINCT
+    SELECT
       l.loan_number,
       l.disbursed_amount,
       l.loan_booking_date::date AS loan_date,
@@ -33,6 +33,7 @@ export default async function handler(req, res) {
     AND g.is_deleted = false
     AND l.loan_number IS NOT NULL
     AND l.loan_booking_date::date BETWEEN '${from}' AND '${to}'
+    GROUP BY l.loan_number, l.disbursed_amount, l.loan_booking_date, b.name, c.name
     ORDER BY l.loan_booking_date DESC;
   `;
 
