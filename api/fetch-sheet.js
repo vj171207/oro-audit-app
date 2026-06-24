@@ -15,14 +15,16 @@ export default async function handler(req, res) {
   try {
     const response = await fetch(url);
     const text = await response.text();
+    // Google wraps response in a callback — strip it
     const jsonStart = text.indexOf('{');
     const jsonEnd = text.lastIndexOf('}');
     if (jsonStart === -1) {
-      return res.status(500).json({ error: 'Could not parse sheet response' });
+      return res.status(500).json({ error: 'Sheet not accessible or empty. Raw: ' + text.slice(0, 200) });
     }
-    const json = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
+    const cleaned = text.substring(jsonStart, jsonEnd + 1);
+    const json = JSON.parse(cleaned);
     return res.status(200).json(json);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message + ' — check sheet is publicly accessible' });
   }
 }
