@@ -68,7 +68,7 @@ export default async function handler(req, res) {
     const loans = rows.map(r => ({
       loanNumber: String(r[0]),
       loanAmount: parseFloat(r[1]) || 0,
-      loanDate: r[2] || '—',
+      loanDate: r[2] ? String(r[2]).split('T')[0] : '—',
       branch: r[3] || '—',
       city: r[4] || '—'
     }));
