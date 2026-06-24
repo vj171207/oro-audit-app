@@ -241,6 +241,9 @@ function switchSection(id, btn) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   btn.classList.add('active');
+  if (id === 'new-audit') {
+    loadUnauditedLoans();
+  }
   if (id === 'tear-weight') {
     showLoadingState('tw-tbody', 8, 'Loading from Firestore...');
     Promise.all([loadAudits(), loadFormResponses()]).then(() => { renderTWTable(); populateBranchFilter(); });
@@ -262,6 +265,64 @@ function showLoadingState(tbodyId, cols, msg) {
 document.getElementById('loan-id-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') handleFetch();
 });
+
+// ── Load unaudited loans — queries Metabase live ──
+function loadUnauditedLoans() {
+  document.getElementById('unaudited-loading').style.display = 'block';
+  document.getElementById('unaudited-results').style.display = 'none';
+
+  // Get all loan IDs that have been properly audited in Firestore
+  const auditedIds = new Set(
+    auditStore
+      .filter(a => a.source !== 'metabase-sync' && a.auditor && a.auditor !== '—')
+      .map(a => a.loanId)
+  );
+
+  // Query Metabase live for all active loans
+  fetch('/api/active-loans')
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById('unaudited-loading').style.display = 'none';
+
+      if (data.error) {
+        document.getElementById('unaudited-count').textContent = 'Error loading loans: ' + data.error;
+        document.getElementById('unaudited-results').style.display = 'block';
+        return;
+      }
+
+      // Subtract already audited loans
+      const unaudited = (data.loans || []).filter(l => !auditedIds.has(l.loanNumber));
+
+      if (!unaudited.length) {
+        document.getElementById('unaudited-count').textContent = 'All active loans have been audited.';
+        document.getElementById('unaudited-tbody').innerHTML =
+          '<tr class="empty-row"><td colspan="6">No unaudited loans found.</td></tr>';
+        document.getElementById('unaudited-results').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('unaudited-count').textContent =
+        unaudited.length + ' unaudited loan' + (unaudited.length !== 1 ? 's' : '') + ' — click any to begin audit';
+
+      document.getElementById('unaudited-tbody').innerHTML = unaudited.map(l => `
+        <tr class="row-clickable" onclick="selectBrowsedLoan('${l.loanNumber}')">
+          <td><span class="loan-mono">${l.loanNumber}</span></td>
+          <td style="color:var(--text-2)">${l.branch || '—'}</td>
+          <td style="color:var(--text-2)">${l.city || '—'}</td>
+          <td style="color:var(--text-2)">${l.loanDate || '—'}</td>
+          <td>${l.loanAmount ? '₹' + Number(l.loanAmount).toLocaleString('en-IN') : '—'}</td>
+          <td><span style="color:var(--gold); font-size:12px; font-weight:500;">Start audit →</span></td>
+        </tr>
+      `).join('');
+
+      document.getElementById('unaudited-results').style.display = 'block';
+    })
+    .catch(err => {
+      document.getElementById('unaudited-loading').style.display = 'none';
+      document.getElementById('unaudited-count').textContent = 'Failed to load. Check your connection.';
+      document.getElementById('unaudited-results').style.display = 'block';
+    });
+}
 
 // ── Lookup tab switcher ──
 function switchLookupTab(tab) {
@@ -703,7 +764,8 @@ const TW_PAGE_SIZE = 15;
 let twCurrentPage = 0;
 
 function renderTWTable(search = '', filter = twFilter) {
-  const loans = auditStore;
+  // Only show loans that have been actually audited (not just synced from Metabase)
+  const loans = auditStore.filter(a => a.source !== 'metabase-sync' && a.auditor && a.auditor !== '—');
   const checked = Object.keys(twCurrentValues).length;
   const flagged = Object.entries(twCurrentValues).filter(([id, v]) => {
     const a = loans.find(x => x.loanId === id);
@@ -712,12 +774,10 @@ function renderTWTable(search = '', filter = twFilter) {
   const matched = checked - flagged;
 
   const pendingCount = loans.filter(a => getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null) === 'pending').length;
-  const incrementalCount = loans.filter(a => getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null) === 'incremental').length;
 
   document.getElementById('tw-stat-row').innerHTML = `
     <div class="stat-chip">${loans.length} loan${loans.length !== 1 ? 's' : ''}</div>
     <div class="stat-chip" style="background:var(--warning-bg); border-color:var(--warning-border); color:var(--warning);">${pendingCount} pending</div>
-    <div class="stat-chip" style="background:#EBF3FF; border-color:#BFDBFE; color:#1A56DB;">${incrementalCount} incremental</div>
     <div class="stat-chip success">${matched} matched</div>
     <div class="stat-chip danger">${flagged} flagged</div>
   `;
@@ -738,7 +798,6 @@ function renderTWTable(search = '', filter = twFilter) {
     const isMatched = hasCv && !isFlagged;
     const loanSt = getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null);
     if (filter === 'pending') return matchSearch && matchBranch && matchFrom && matchTo && loanSt === 'pending';
-    if (filter === 'incremental') return matchSearch && matchBranch && matchFrom && matchTo && loanSt === 'incremental';
     if (filter === 'matched') return matchSearch && matchBranch && matchFrom && matchTo && isMatched;
     if (filter === 'flagged') return matchSearch && matchBranch && matchFrom && matchTo && isFlagged;
     return matchSearch && matchBranch && matchFrom && matchTo;
@@ -775,7 +834,6 @@ function renderTWTable(search = '', filter = twFilter) {
     const loanStatus = getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null);
     const statusBadgeMap = {
       pending: '<span style="background:#FEF9EC; color:#9B6800; border:1px solid #F3DA87; border-radius:20px; font-size:10px; font-weight:600; padding:2px 8px; white-space:nowrap;">⏳ Pending</span>',
-      incremental: '<span style="background:#EBF3FF; color:#1A56DB; border:1px solid #BFDBFE; border-radius:20px; font-size:10px; font-weight:600; padding:2px 8px; white-space:nowrap;">↑ Incremental</span>',
       audited: ''
     };
 
@@ -1025,3 +1083,11 @@ function closeModal(e) {
     document.getElementById('audit-modal').classList.add('hidden');
   }
 }
+
+// ── INIT ──
+showLoadingState('reports-tbody', 8, 'Loading audits from Firestore...');
+showLoadingState('tw-tbody', 8, 'Loading...');
+loadAudits().then(() => {
+  if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
+  loadUnauditedLoans();
+});
