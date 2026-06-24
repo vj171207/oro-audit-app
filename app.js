@@ -1080,4 +1080,38 @@ function populateReportFilters() {
 function openModal(docId) {
   const a = auditStore.find(x => x.id === docId);
   if (!a) return;
-  document.getElementById('modal-loan-id').text
+  document.getElementById('modal-loan-id').textContent = a.loanId;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-section">Audit summary</div>
+    <div class="modal-grid">
+      <div><div class="mfl">Loan ID</div><div class="mfv" style="font-family:monospace">${a.loanId}</div></div>
+      <div><div class="mfl">Audit date</div><div class="mfv">${a.date}</div></div>
+      <div><div class="mfl">Auditor</div><div class="mfv">${a.auditor}</div></div>
+      <div><div class="mfl">Branch</div><div class="mfv">${a.branch || '—'}</div></div>
+      <div><div class="mfl">City</div><div class="mfv">${a.city || '—'}</div></div>
+      <div><div class="mfl">Loan amount</div><div class="mfv">${a.loanAmount || '—'}</div></div>
+    </div>
+    <div class="modal-section">Findings</div>
+    <div class="modal-grid">
+      <div><div class="mfl">Tear weight</div><div class="mfv">${a.tw != null ? Number(a.tw).toFixed(2) + ' g' : '—'}</div></div>
+      <div><div class="mfl">Excess funding</div><div class="mfv" style="color:${a.excessFunding === 'Yes' ? 'var(--danger)' : 'inherit'}">${a.excessFunding}${a.excessAmount ? ' — ₹' + Number(a.excessAmount).toLocaleString('en-IN') : ''}</div></div>
+      <div><div class="mfl">Spurious</div><div class="mfv" style="color:${a.spurious === 'Yes' ? 'var(--danger)' : 'inherit'}">${a.spurious}</div></div>
+    </div>
+    ${a.remarks ? `<div class="modal-section">Remarks</div><div class="remarks-block">${a.remarks}</div>` : ''}
+  `;
+  document.getElementById('audit-modal').classList.remove('hidden');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('audit-modal')) {
+    document.getElementById('audit-modal').classList.add('hidden');
+  }
+}
+
+// ── INIT ──
+showLoadingState('reports-tbody', 8, 'Loading audits from Firestore...');
+showLoadingState('tw-tbody', 8, 'Loading...');
+loadAudits().then(() => {
+  if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
+  loadUnauditedLoans();
+});
