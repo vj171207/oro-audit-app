@@ -24,32 +24,88 @@ let twFilter = 'all';
 let twCurrentValues = {};
 let currentLoanId = null;
 
-// ── Active loans cache (fetched from Metabase on load) ──
-let activeLoanIds = new Set();
+// ── Google Form responses sheet ──
+const FORM_SHEET_ID = '1ruI_OrPrhdHlAwWYBWDvJvU7xkxjEE1IldosBpb--SU';
+const FORM_SHEET_NAME = 'Form responses 1';
+const FORM_SHEET_URL = `https://docs.google.com/spreadsheets/d/${FORM_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(FORM_SHEET_NAME)}`;
 
-function loadActiveLoans() {
-  return fetch('/api/active-loans')
-    .then(res => res.json())
-    .then(data => {
-      activeLoanIds = new Set((data.loans || []).map(l => l.loanNumber));
-      return activeLoanIds;
+// formAuditMap: loanId -> { lastAuditDate, loanAmount }
+let formAuditMap = {};
+const PENDING_DAYS = 30;
+
+function loadFormResponses() {
+  return fetch(FORM_SHEET_URL)
+    .then(res => res.text())
+    .then(text => {
+      const jsonStart = text.indexOf('{');
+      const jsonEnd = text.lastIndexOf('}');
+      const json = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
+      const rows = json.table.rows;
+
+      formAuditMap = {};
+      rows.forEach(row => {
+        const c = row.c;
+        if (!c || !c[7]?.v) return;
+        const loanId = String(c[7].v).trim();
+        const auditDateRaw = c[3]?.v;
+        const loanAmount = c[10]?.v ? parseFloat(c[10].v) : null;
+
+        // Parse Google date format Date(yyyy,m,d)
+        let auditDate = null;
+        if (auditDateRaw && typeof auditDateRaw === 'string' && auditDateRaw.startsWith('Date(')) {
+          const parts = auditDateRaw.replace('Date(','').replace(')','').split(',');
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]) + 1;
+          const d = parseInt(parts[2]);
+          auditDate = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        } else if (typeof auditDateRaw === 'number') {
+          // Excel serial date
+          const date = new Date(Math.round((auditDateRaw - 25569) * 86400 * 1000));
+          auditDate = date.toISOString().split('T')[0];
+        }
+
+        if (!auditDate) return;
+
+        // Keep most recent audit per loan
+        if (!formAuditMap[loanId] || auditDate > formAuditMap[loanId].lastAuditDate) {
+          formAuditMap[loanId] = { lastAuditDate: auditDate, loanAmount };
+        }
+      });
+
+      console.log(`Loaded ${Object.keys(formAuditMap).length} loans from form responses`);
+      return formAuditMap;
     })
     .catch(err => {
-      console.error('Failed to load active loans:', err);
-      return new Set();
+      console.error('Failed to load form responses:', err);
+      return {};
     });
 }
 
-// ── Pending cycle ──
-const PENDING_DAYS = 30;
-
-function getLoanStatus(loanId) {
-  if (!activeLoanIds.has(loanId)) return 'inactive';
+function getLoanStatus(loanId, currentLoanAmount) {
+  // Step 1 — Check Firestore first (audits submitted via app)
   const firestoreRecords = auditStore.filter(a => a.loanId === loanId && a.source !== 'metabase-sync');
-  if (firestoreRecords.length === 0) return 'pending';
-  const mostRecent = firestoreRecords.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
-  const daysSince = Math.floor((new Date() - new Date(mostRecent.date)) / (1000 * 60 * 60 * 24));
-  return daysSince <= PENDING_DAYS ? 'audited' : 'pending';
+  
+  if (firestoreRecords.length > 0) {
+    // Find most recent audit date in Firestore
+    const mostRecent = firestoreRecords.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+    const today = new Date();
+    const lastAudit = new Date(mostRecent.date);
+    const daysSince = Math.floor((today - lastAudit) / (1000 * 60 * 60 * 24));
+    if (daysSince <= PENDING_DAYS) return 'audited';
+    return 'pending';
+  }
+
+  // Step 2 — Fall back to Google Sheet (older loans audited via form)
+  const record = formAuditMap[loanId];
+  if (!record) return 'pending'; // never audited anywhere
+
+  const today = new Date();
+  const lastAudit = new Date(record.lastAuditDate);
+  const daysSince = Math.floor((today - lastAudit) / (1000 * 60 * 60 * 24));
+
+  if (daysSince > PENDING_DAYS) return 'pending';
+  if (currentLoanAmount && record.loanAmount && currentLoanAmount > record.loanAmount) return 'incremental';
+  return 'audited';
 }
 
 // ── Date formatter ──
@@ -190,7 +246,7 @@ function switchSection(id, btn) {
   }
   if (id === 'tear-weight') {
     showLoadingState('tw-tbody', 8, 'Loading from Firestore...');
-    loadAudits().then(() => { renderTWTable(); populateBranchFilter(); });
+    Promise.all([loadAudits(), loadFormResponses()]).then(() => { renderTWTable(); populateBranchFilter(); });
   }
   if (id === 'all-audits') {
     showLoadingState('reports-tbody', 8, 'Loading from Firestore...');
@@ -714,7 +770,7 @@ let twCurrentPage = 0;
 function renderTWTable(search = '', filter = twFilter) {
   // Only show loans that have a tare weight recorded — properly audited
   // Deduplicate by loan ID — keep most recent audit per loan
-  const audited = auditStore.filter(a => a.tw !== null && a.tw !== undefined && a.source !== 'metabase-sync' && activeLoanIds.has(a.loanId));
+  const audited = auditStore.filter(a => a.tw !== null && a.tw !== undefined && a.source !== 'metabase-sync');
   const loanMap = {};
   audited.forEach(a => {
     if (!loanMap[a.loanId] || a.date > loanMap[a.loanId].date) {
@@ -729,7 +785,7 @@ function renderTWTable(search = '', filter = twFilter) {
   }).length;
   const matched = checked - flagged;
 
-  const pendingCount = loans.filter(a => getLoanStatus(a.loanId) === 'pending').length;
+  const pendingCount = loans.filter(a => getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null) === 'pending').length;
 
   document.getElementById('tw-stat-row').innerHTML = `
     <div class="stat-chip">${loans.length} loan${loans.length !== 1 ? 's' : ''}</div>
@@ -752,7 +808,7 @@ function renderTWTable(search = '', filter = twFilter) {
     const hasCv = cv !== undefined;
     const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > 0.3;
     const isMatched = hasCv && !isFlagged;
-    const loanSt = getLoanStatus(a.loanId);
+    const loanSt = getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null);
     if (filter === 'pending') return matchSearch && matchBranch && matchFrom && matchTo && loanSt === 'pending';
     if (filter === 'matched') return matchSearch && matchBranch && matchFrom && matchTo && isMatched;
     if (filter === 'flagged') return matchSearch && matchBranch && matchFrom && matchTo && isFlagged;
@@ -781,13 +837,13 @@ function renderTWTable(search = '', filter = twFilter) {
     const diffDisplay = hasCv && a.tw != null
       ? `<span style="color:${isFlagged ? 'var(--danger)' : 'var(--success)'}; font-weight:500">${parseFloat(diff) > 0 ? '+' : ''}${diff}</span>`
       : '<span style="color:var(--text-3)">—</span>';
-    let badge = '<span class="badge badge-pending">Pending</span>';
+    let badge = '';
     if (isFlagged) badge = '<span class="badge badge-flag">⚠ Mismatch</span>';
     else if (isMatched) badge = '<span class="badge badge-match">✓ Match</span>';
 
     const isSubmitted = a._twSubmitted === true;
 
-    const loanStatus = getLoanStatus(a.loanId);
+    const loanStatus = getLoanStatus(a.loanId, a.loanAmount ? parseFloat(a.loanAmount) : null);
     const statusBadgeMap = {
       pending: '<span style="background:#FEF9EC; color:#9B6800; border:1px solid #F3DA87; border-radius:20px; font-size:10px; font-weight:600; padding:2px 8px; white-space:nowrap;">⏳ Pending</span>',
       audited: ''
@@ -982,11 +1038,6 @@ function renderAllAudits(search = '') {
       ? `<span class="badge badge-flag">Yes</span>`
       : `<span class="badge-no">No</span>`;
 
-    const isActive = activeLoanIds.has(a.loanId);
-    const loanStatusBadge = isActive
-      ? '<span style="background:#EDFAF3; color:#1A7A4A; border:1px solid #A3E0BF; border-radius:20px; font-size:10px; font-weight:600; padding:2px 8px;">Active</span>'
-      : '<span style="background:#F5F5F5; color:#777; border:1px solid #DDD; border-radius:20px; font-size:10px; font-weight:600; padding:2px 8px;">Inactive</span>';
-
     return `
       <tr class="row-clickable" onclick="openModal('${a.id}')">
         <td><span class="loan-mono">${a.loanId}</span></td>
@@ -997,7 +1048,6 @@ function renderAllAudits(search = '') {
         <td>${excessBadge}</td>
         <td>${spurBadge}</td>
         <td><strong>${a.tw != null ? Number(a.tw).toFixed(2) : '—'}</strong></td>
-        <td>${loanStatusBadge}</td>
       </tr>`;
   }).join('');
 }
@@ -1030,38 +1080,4 @@ function populateReportFilters() {
 function openModal(docId) {
   const a = auditStore.find(x => x.id === docId);
   if (!a) return;
-  document.getElementById('modal-loan-id').textContent = a.loanId;
-  document.getElementById('modal-body').innerHTML = `
-    <div class="modal-section">Audit summary</div>
-    <div class="modal-grid">
-      <div><div class="mfl">Loan ID</div><div class="mfv" style="font-family:monospace">${a.loanId}</div></div>
-      <div><div class="mfl">Audit date</div><div class="mfv">${a.date}</div></div>
-      <div><div class="mfl">Auditor</div><div class="mfv">${a.auditor}</div></div>
-      <div><div class="mfl">Branch</div><div class="mfv">${a.branch || '—'}</div></div>
-      <div><div class="mfl">City</div><div class="mfv">${a.city || '—'}</div></div>
-      <div><div class="mfl">Loan amount</div><div class="mfv">${a.loanAmount || '—'}</div></div>
-    </div>
-    <div class="modal-section">Findings</div>
-    <div class="modal-grid">
-      <div><div class="mfl">Tear weight</div><div class="mfv">${a.tw != null ? Number(a.tw).toFixed(2) + ' g' : '—'}</div></div>
-      <div><div class="mfl">Excess funding</div><div class="mfv" style="color:${a.excessFunding === 'Yes' ? 'var(--danger)' : 'inherit'}">${a.excessFunding}${a.excessAmount ? ' — ₹' + Number(a.excessAmount).toLocaleString('en-IN') : ''}</div></div>
-      <div><div class="mfl">Spurious</div><div class="mfv" style="color:${a.spurious === 'Yes' ? 'var(--danger)' : 'inherit'}">${a.spurious}</div></div>
-    </div>
-    ${a.remarks ? `<div class="modal-section">Remarks</div><div class="remarks-block">${a.remarks}</div>` : ''}
-  `;
-  document.getElementById('audit-modal').classList.remove('hidden');
-}
-
-function closeModal(e) {
-  if (!e || e.target === document.getElementById('audit-modal')) {
-    document.getElementById('audit-modal').classList.add('hidden');
-  }
-}
-
-// ── INIT ──
-showLoadingState('reports-tbody', 8, 'Loading audits from Firestore...');
-showLoadingState('tw-tbody', 8, 'Loading...');
-Promise.all([loadAudits(), loadActiveLoans()]).then(() => {
-  if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
-  loadUnauditedLoans();
-});
+  document.getElementById('modal-loan-id').text
