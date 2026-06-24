@@ -290,8 +290,9 @@ function loadUnauditedLoans() {
         return;
       }
 
-      // Subtract already audited loans
-      const unaudited = (data.loans || []).filter(l => !auditedIds.has(l.loanNumber));
+      // Show ALL active loans — re-audit exercise mode
+      // TODO: after re-audit week, restore: .filter(l => !auditedIds.has(l.loanNumber))
+      const unaudited = (data.loans || []);
 
       if (!unaudited.length) {
         document.getElementById('unaudited-count').textContent = 'All active loans have been audited.';
@@ -302,7 +303,7 @@ function loadUnauditedLoans() {
       }
 
       document.getElementById('unaudited-count').textContent =
-        unaudited.length + ' unaudited loan' + (unaudited.length !== 1 ? 's' : '') + ' — click any to begin audit';
+        unaudited.length + ' active loan' + (unaudited.length !== 1 ? 's' : '') + ' — click any to begin audit';
 
       document.getElementById('unaudited-tbody').innerHTML = unaudited.map(l => `
         <tr class="row-clickable" onclick="selectBrowsedLoan('${l.loanNumber}')">
