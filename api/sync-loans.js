@@ -9,7 +9,6 @@ const METABASE_DB_ID = 103;
 const FIREBASE_PROJECT_ID = 'oro-audit';
 
 async function getFirebaseToken() {
-  // Use Firebase REST API with the web API key
   const apiKey = process.env.FIREBASE_API_KEY;
   const email = process.env.FIREBASE_SYNC_EMAIL;
   const password = process.env.FIREBASE_SYNC_PASSWORD;
@@ -27,18 +26,26 @@ async function getFirebaseToken() {
 }
 
 async function getExistingLoanIds(token) {
-  // Fetch all loan IDs already in Firestore
-  const res = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/audits?pageSize=1000`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  const data = await res.json();
-  if (!data.documents) return new Set();
-  return new Set(
-    data.documents
-      .map(doc => doc.fields?.loanId?.stringValue)
-      .filter(Boolean)
-  );
+  // Paginate through ALL Firestore documents to avoid missing any
+  const existingIds = new Set();
+  let pageToken = null;
+
+  do {
+    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/audits?pageSize=1000${pageToken ? '&pageToken=' + pageToken : ''}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+
+    if (data.documents) {
+      data.documents.forEach(doc => {
+        const loanId = doc.fields?.loanId?.stringValue;
+        if (loanId) existingIds.add(loanId);
+      });
+    }
+
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+
+  return existingIds;
 }
 
 async function getActiveLoansFromMetabase() {
@@ -120,7 +127,6 @@ async function addLoanToFirestore(token, loan) {
 }
 
 export default async function handler(req, res) {
-  // Security check — only allow Vercel cron calls
   const authHeader = req.headers.authorization;
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -129,22 +135,16 @@ export default async function handler(req, res) {
   try {
     console.log('Starting daily loan sync...');
 
-    // 1. Get Firebase token
     const token = await getFirebaseToken();
-
-    // 2. Get existing loan IDs from Firestore
     const existingIds = await getExistingLoanIds(token);
     console.log(`Found ${existingIds.size} existing loans in Firestore`);
 
-    // 3. Get all active loans from Metabase
     const activeLoans = await getActiveLoansFromMetabase();
     console.log(`Found ${activeLoans.length} active loans in Metabase`);
 
-    // 4. Find new loans not in Firestore
     const newLoans = activeLoans.filter(l => !existingIds.has(l.loanNumber));
     console.log(`Found ${newLoans.length} new loans to add`);
 
-    // 5. Add each new loan to Firestore
     let added = 0;
     for (const loan of newLoans) {
       await addLoanToFirestore(token, loan);
