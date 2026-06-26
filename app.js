@@ -1088,40 +1088,47 @@ function generateReport() {
   const data = window._lastFilteredAudits || [];
   if (!data.length) { alert('No audits to export.'); return; }
 
-  // Build rows
-  const rows = [
-    ['Loan ID', 'Branch', 'City', 'Audit Date', 'Auditor', 'Loan Amount', 'Excess Funding', 'Excess Amount (₹)', 'Spurious', 'Spurious Ornaments', 'Tare Weight (g)', 'Loan Status', 'Remarks']
+  function fmtDate(d) {
+    if (!d) return '';
+    const parts = d.split('-');
+    if (parts.length !== 3) return d;
+    return parts[2] + '/' + parts[1] + '/' + parts[0];
+  }
+
+  function val(v) { return (v == null || v === 'null') ? '' : String(v); }
+
+  const headers = ['Loan ID', 'Branch', 'City', 'Audit Date', 'Auditor', 'Loan Amount (Rs)', 'Excess Funding', 'Excess Amount (Rs)', 'Spurious', 'Spurious Ornaments', 'Tare Weight (g)', 'Loan Status', 'Remarks'];
+
+  const rows = data.map(a => [
+    val(a.loanId),
+    val(a.branch),
+    val(a.city),
+    fmtDate(a.date),
+    val(a.auditor),
+    val(a.loanAmount),
+    val(a.excessFunding),
+    a.excessAmount || 0,
+    val(a.spurious),
+    (a.spuriousOrnaments || []).join(', ') || '',
+    a.tw != null ? Number(a.tw).toFixed(2) : '',
+    activeLoanIds.has(a.loanId) ? 'Active' : 'Inactive',
+    val(a.remarks)
+  ]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  ws['!cols'] = [
+    { wch: 18 }, { wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 18 },
+    { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 10 }, { wch: 22 },
+    { wch: 16 }, { wch: 14 }, { wch: 35 }
   ];
 
-  data.forEach(a => {
-    rows.push([
-      a.loanId,
-      a.branch || '—',
-      a.city || '—',
-      a.date || '—',
-      a.auditor || '—',
-      a.loanAmount || '—',
-      a.excessFunding || '—',
-      a.excessAmount || 0,
-      a.spurious || '—',
-      (a.spuriousOrnaments || []).join(', ') || '—',
-      a.tw != null ? Number(a.tw).toFixed(2) : '—',
-      activeLoanIds.has(a.loanId) ? 'Active' : 'Inactive',
-      a.remarks || '—'
-    ]);
-  });
-
-  // Convert to CSV and download
-  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const today = new Date().toISOString().split('T')[0];
-  a.href = url;
-  a.download = `Oro_Audit_Report_${today}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  XLSX.utils.book_append_sheet(wb, ws, 'Audit Report');
+  const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+  XLSX.writeFile(wb, 'Oro_Audit_Report_' + today + '.xlsx');
 }
+
 
 function openModal(docId) {
   const a = auditStore.find(x => x.id === docId);
