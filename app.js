@@ -1169,7 +1169,12 @@ function unlockSettings() {
 function loadSettingsPanel() {
   document.getElementById('setting-pending-days').value = PENDING_DAYS;
   document.getElementById('setting-tw-threshold').value = TW_THRESHOLD;
-  document.getElementById('info-total-records').textContent = auditStore.length;
+  const uniqueAudited = new Set(
+    auditStore
+      .filter(a => a.source !== 'metabase-sync' && a.auditor && a.auditor !== '—')
+      .map(a => a.loanId)
+  ).size;
+  document.getElementById('info-total-records').textContent = uniqueAudited;
   document.getElementById('info-active-loans').textContent = activeLoanIds.size;
   document.getElementById('info-pending-days').textContent = PENDING_DAYS + ' days';
   document.getElementById('info-tw-threshold').textContent = TW_THRESHOLD + 'g';
