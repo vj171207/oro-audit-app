@@ -40,8 +40,24 @@ function loadActiveLoans() {
     });
 }
 
-// ── Pending cycle ──
-const PENDING_DAYS = 30;
+// ── Settings (loaded from Firestore, with defaults) ──
+let PENDING_DAYS = 30;
+let TW_THRESHOLD = 0.3;
+let SETTINGS_PASSWORD = 'oro-sync-2026';
+
+async function loadSettings() {
+  try {
+    const doc = await db.collection('app_settings').doc('config').get();
+    if (doc.exists) {
+      const d = doc.data();
+      if (d.pendingDays) PENDING_DAYS = d.pendingDays;
+      if (d.twThreshold) TW_THRESHOLD = d.twThreshold;
+      if (d.settingsPassword) SETTINGS_PASSWORD = d.settingsPassword;
+    }
+  } catch (err) {
+    console.error('Failed to load settings:', err);
+  }
+}
 
 function getLoanStatus(loanId) {
   if (!activeLoanIds.has(loanId)) return 'inactive';
@@ -53,7 +69,7 @@ function getLoanStatus(loanId) {
 }
 
 // ── Audit date ──
-const AUDIT_DATE_PASSWORD = 'oro-sync-2026';
+// Password is now managed via SETTINGS_PASSWORD (loaded from Firestore)
 
 function initAuditDate() {
   const today = new Date().toISOString().split('T')[0];
@@ -76,7 +92,7 @@ function closeAuditDateModal(e) {
 
 function confirmAuditDateUnlock() {
   const pwd = document.getElementById('audit-date-password').value.trim();
-  if (pwd !== AUDIT_DATE_PASSWORD) {
+  if (pwd !== SETTINGS_PASSWORD) {
     document.getElementById('audit-date-modal-error').textContent = '❌ Incorrect password.';
     return;
   }
@@ -239,6 +255,12 @@ function switchSection(id, btn) {
   if (id === 'all-audits') {
     showLoadingState('reports-tbody', 8, 'Loading from Firestore...');
     loadAudits().then(() => { renderAllAudits(); populateReportFilters(); });
+  }
+  if (id === 'settings') {
+    document.getElementById('settings-locked').style.display = 'block';
+    document.getElementById('settings-content').style.display = 'none';
+    document.getElementById('settings-password-input').value = '';
+    document.getElementById('settings-password-error').textContent = '';
   }
 }
 
@@ -606,7 +628,7 @@ function showAuditPreview() {
               <div style="font-size:12px; display:flex; gap:8px; align-items:center;">
                 <span style="color:var(--text-3);">PC: ${o.gwPC}g</span>
                 <span style="color:var(--text-1); font-weight:600;">Audit: ${o.gwAudit || '—'}g</span>
-                ${o.gwAudit && Math.abs(parseFloat(o.gwAudit) - parseFloat(o.gwPC)) > 0.3 ? '<span style="color:var(--danger); font-size:11px;">⚠ diff</span>' : ''}
+                ${o.gwAudit && Math.abs(parseFloat(o.gwAudit) - parseFloat(o.gwPC)) > TW_THRESHOLD ? '<span style="color:var(--danger); font-size:11px;">⚠ diff</span>' : ''}
               </div>
             </div>
             <div>
@@ -622,7 +644,7 @@ function showAuditPreview() {
               <div style="font-size:12px; display:flex; gap:8px;">
                 <span style="color:var(--text-3);">PC: ${o.nwPC}g</span>
                 <span style="color:var(--text-1); font-weight:600;">Audit: ${o.nwAudit || '—'}g</span>
-                ${o.nwAudit && Math.abs(parseFloat(o.nwAudit) - parseFloat(o.nwPC)) > 0.3 ? '<span style="color:var(--danger); font-size:11px;">⚠ diff</span>' : ''}
+                ${o.nwAudit && Math.abs(parseFloat(o.nwAudit) - parseFloat(o.nwPC)) > TW_THRESHOLD ? '<span style="color:var(--danger); font-size:11px;">⚠ diff</span>' : ''}
               </div>
             </div>
           </div>
@@ -780,7 +802,7 @@ function renderTWTable(search = '', filter = twFilter) {
   const checked = Object.keys(twCurrentValues).length;
   const flagged = Object.entries(twCurrentValues).filter(([id, v]) => {
     const a = loans.find(x => x.loanId === id);
-    return a && a.tw != null && Math.abs(v - a.tw) > 0.3;
+    return a && a.tw != null && Math.abs(v - a.tw) > TW_THRESHOLD;
   }).length;
   const matched = checked - flagged;
 
@@ -805,7 +827,7 @@ function renderTWTable(search = '', filter = twFilter) {
     const matchTo = !dateTo || a.date <= dateTo;
     const cv = twCurrentValues[a.loanId];
     const hasCv = cv !== undefined;
-    const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > 0.3;
+    const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > TW_THRESHOLD;
     const isMatched = hasCv && !isFlagged;
     const loanSt = getLoanStatus(a.loanId);
     if (filter === 'pending') return matchSearch && matchBranch && matchFrom && matchTo && loanSt === 'pending';
@@ -830,7 +852,7 @@ function renderTWTable(search = '', filter = twFilter) {
   tbody.innerHTML = pageLoans.map(a => {
     const cv = twCurrentValues[a.loanId];
     const hasCv = cv !== undefined;
-    const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > 0.3;
+    const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > TW_THRESHOLD;
     const isMatched = hasCv && !isFlagged;
     const diff = hasCv && a.tw != null ? (cv - a.tw).toFixed(2) : '—';
     const diffDisplay = hasCv && a.tw != null
@@ -1130,6 +1152,78 @@ function generateReport() {
 }
 
 
+// ────────────────────────────
+// SETTINGS
+// ────────────────────────────
+function unlockSettings() {
+  const pwd = document.getElementById('settings-password-input').value.trim();
+  if (pwd !== SETTINGS_PASSWORD) {
+    document.getElementById('settings-password-error').textContent = '❌ Incorrect password.';
+    return;
+  }
+  document.getElementById('settings-locked').style.display = 'none';
+  document.getElementById('settings-content').style.display = 'block';
+  loadSettingsPanel();
+}
+
+function loadSettingsPanel() {
+  document.getElementById('setting-pending-days').value = PENDING_DAYS;
+  document.getElementById('setting-tw-threshold').value = TW_THRESHOLD;
+  document.getElementById('info-total-records').textContent = auditStore.length;
+  document.getElementById('info-active-loans').textContent = activeLoanIds.size;
+  document.getElementById('info-pending-days').textContent = PENDING_DAYS + ' days';
+  document.getElementById('info-tw-threshold').textContent = TW_THRESHOLD + 'g';
+  const syncRecords = auditStore.filter(a => a.source === 'metabase-sync' && a.syncedAt);
+  if (syncRecords.length) {
+    const latest = syncRecords.sort((a, b) => (b.syncedAt || '').localeCompare(a.syncedAt || ''))[0];
+    const d = new Date(latest.syncedAt);
+    document.getElementById('info-last-sync').textContent = d.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'});
+  } else {
+    document.getElementById('info-last-sync').textContent = 'No sync on record';
+  }
+}
+
+async function saveAuditSettings() {
+  const pendingDays = parseInt(document.getElementById('setting-pending-days').value);
+  const twThreshold = parseFloat(document.getElementById('setting-tw-threshold').value);
+  const statusEl = document.getElementById('audit-settings-status');
+  if (isNaN(pendingDays) || pendingDays < 1) { statusEl.textContent = '❌ Invalid pending days.'; statusEl.style.color = 'var(--danger)'; return; }
+  if (isNaN(twThreshold) || twThreshold < 0.1) { statusEl.textContent = '❌ Invalid threshold.'; statusEl.style.color = 'var(--danger)'; return; }
+  try {
+    await db.collection('app_settings').doc('config').set({ pendingDays, twThreshold, settingsPassword: SETTINGS_PASSWORD, updatedAt: new Date().toISOString() }, { merge: true });
+    PENDING_DAYS = pendingDays;
+    TW_THRESHOLD = twThreshold;
+    document.getElementById('info-pending-days').textContent = PENDING_DAYS + ' days';
+    document.getElementById('info-tw-threshold').textContent = TW_THRESHOLD + 'g';
+    statusEl.textContent = '✓ Saved';
+    statusEl.style.color = 'var(--success)';
+    setTimeout(() => statusEl.textContent = '', 3000);
+  } catch (err) {
+    statusEl.textContent = '❌ Failed to save.';
+    statusEl.style.color = 'var(--danger)';
+  }
+}
+
+async function changeSettingsPassword() {
+  const current = document.getElementById('setting-current-password').value.trim();
+  const newPwd = document.getElementById('setting-new-password').value.trim();
+  const statusEl = document.getElementById('password-change-status');
+  if (current !== SETTINGS_PASSWORD) { statusEl.textContent = '❌ Current password incorrect.'; statusEl.style.color = 'var(--danger)'; return; }
+  if (!newPwd || newPwd.length < 6) { statusEl.textContent = '❌ Must be at least 6 characters.'; statusEl.style.color = 'var(--danger)'; return; }
+  try {
+    await db.collection('app_settings').doc('config').set({ settingsPassword: newPwd, updatedAt: new Date().toISOString() }, { merge: true });
+    SETTINGS_PASSWORD = newPwd;
+    document.getElementById('setting-current-password').value = '';
+    document.getElementById('setting-new-password').value = '';
+    statusEl.textContent = '✓ Password changed';
+    statusEl.style.color = 'var(--success)';
+    setTimeout(() => statusEl.textContent = '', 3000);
+  } catch (err) {
+    statusEl.textContent = '❌ Failed to save.';
+    statusEl.style.color = 'var(--danger)';
+  }
+}
+
 function openModal(docId) {
   const a = auditStore.find(x => x.id === docId);
   if (!a) return;
@@ -1148,7 +1242,7 @@ function openModal(docId) {
             <div style="font-size:12px; margin-top:2px;">
               <span style="color:var(--text-3);">PC: ${o.gwPC || '—'}g</span>
               &nbsp;→&nbsp;
-              <span style="font-weight:600; color:${o.gwAudit && o.gwPC && Math.abs(parseFloat(o.gwAudit) - parseFloat(o.gwPC)) > 0.3 ? 'var(--danger)' : 'var(--text-1)'};">Audit: ${o.gwAudit || '—'}g</span>
+              <span style="font-weight:600; color:${o.gwAudit && o.gwPC && Math.abs(parseFloat(o.gwAudit) - parseFloat(o.gwPC)) > TW_THRESHOLD ? 'var(--danger)' : 'var(--text-1)'};">Audit: ${o.gwAudit || '—'}g</span>
             </div>
           </div>
           <div>
@@ -1164,7 +1258,7 @@ function openModal(docId) {
             <div style="font-size:12px; margin-top:2px;">
               <span style="color:var(--text-3);">PC: ${o.nwPC || '—'}g</span>
               &nbsp;→&nbsp;
-              <span style="font-weight:600; color:${o.nwAudit && o.nwPC && Math.abs(parseFloat(o.nwAudit) - parseFloat(o.nwPC)) > 0.3 ? 'var(--danger)' : 'var(--text-1)'};">Audit: ${o.nwAudit || '—'}g</span>
+              <span style="font-weight:600; color:${o.nwAudit && o.nwPC && Math.abs(parseFloat(o.nwAudit) - parseFloat(o.nwPC)) > TW_THRESHOLD ? 'var(--danger)' : 'var(--text-1)'};">Audit: ${o.nwAudit || '—'}g</span>
             </div>
           </div>
           <div>
@@ -1221,7 +1315,7 @@ function closeModal(e) {
 showLoadingState('reports-tbody', 8, 'Loading audits from Firestore...');
 showLoadingState('tw-tbody', 8, 'Loading...');
 initAuditDate();
-Promise.all([loadAudits(), loadActiveLoans()]).then(() => {
+Promise.all([loadAudits(), loadActiveLoans(), loadSettings()]).then(() => {
   if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
   loadUnauditedLoans();
 });
