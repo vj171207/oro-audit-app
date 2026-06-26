@@ -52,7 +52,93 @@ function getLoanStatus(loanId) {
   return daysSince <= PENDING_DAYS ? 'audited' : 'pending';
 }
 
+// ── Audit date ──
+const AUDIT_DATE_PASSWORD = 'oro-sync-2026';
+
+function initAuditDate() {
+  const today = new Date().toISOString().split('T')[0];
+  const field = document.getElementById('audit-date-field');
+  if (field) field.value = today;
+}
+
+function unlockAuditDate() {
+  document.getElementById('audit-date-modal').classList.remove('hidden');
+  document.getElementById('audit-date-password').value = '';
+  document.getElementById('audit-date-modal-error').textContent = '';
+  setTimeout(() => document.getElementById('audit-date-password').focus(), 100);
+}
+
+function closeAuditDateModal(e) {
+  if (!e || e.target === document.getElementById('audit-date-modal')) {
+    document.getElementById('audit-date-modal').classList.add('hidden');
+  }
+}
+
+function confirmAuditDateUnlock() {
+  const pwd = document.getElementById('audit-date-password').value.trim();
+  if (pwd !== AUDIT_DATE_PASSWORD) {
+    document.getElementById('audit-date-modal-error').textContent = '❌ Incorrect password.';
+    return;
+  }
+  // Unlock the date field
+  const field = document.getElementById('audit-date-field');
+  field.removeAttribute('readonly');
+  field.style.borderColor = 'var(--gold)';
+  document.getElementById('audit-date-lock-btn').innerHTML = `
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><line x1="12" y1="15" x2="12" y2="17"/></svg>
+    Unlocked
+  `;
+  document.getElementById('audit-date-lock-btn').style.color = 'var(--gold)';
+  document.getElementById('audit-date-lock-btn').style.borderColor = 'var(--gold)';
+  document.getElementById('audit-date-hint').textContent = 'Date is now editable';
+  document.getElementById('audit-date-hint').style.color = 'var(--gold)';
+  document.getElementById('audit-date-modal').classList.add('hidden');
+}
+
 // ── Date formatter ──
+// ── Audit date ──
+const AUDIT_DATE_PASSWORD = 'oro-sync-2026';
+
+function initAuditDate() {
+  const today = new Date().toISOString().split('T')[0];
+  const field = document.getElementById('audit-date-field');
+  if (field) field.value = today;
+}
+
+function unlockAuditDate() {
+  document.getElementById('audit-date-modal').classList.remove('hidden');
+  document.getElementById('audit-date-password').value = '';
+  document.getElementById('audit-date-modal-error').textContent = '';
+  setTimeout(() => document.getElementById('audit-date-password').focus(), 100);
+}
+
+function closeAuditDateModal(e) {
+  if (!e || e.target === document.getElementById('audit-date-modal')) {
+    document.getElementById('audit-date-modal').classList.add('hidden');
+  }
+}
+
+function confirmAuditDateUnlock() {
+  const pwd = document.getElementById('audit-date-password').value.trim();
+  if (pwd !== AUDIT_DATE_PASSWORD) {
+    document.getElementById('audit-date-modal-error').textContent = '❌ Incorrect password.';
+    return;
+  }
+  // Unlock the date field
+  const field = document.getElementById('audit-date-field');
+  field.removeAttribute('readonly');
+  field.style.borderColor = 'var(--gold)';
+  document.getElementById('audit-date-lock-btn').innerHTML = `
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><line x1="12" y1="15" x2="12" y2="17"/></svg>
+    Unlocked
+  `;
+  document.getElementById('audit-date-lock-btn').style.color = 'var(--gold)';
+  document.getElementById('audit-date-lock-btn').style.borderColor = 'var(--gold)';
+  document.getElementById('audit-date-hint').textContent = 'Date is now editable';
+  document.getElementById('audit-date-hint').style.color = 'var(--gold)';
+  document.getElementById('audit-date-modal').classList.add('hidden');
+}
+
 // ── Date formatter ──
 function formatDate(dateStr) {
   if (!dateStr || dateStr === "—") return "—";
@@ -656,7 +742,7 @@ function handleSubmit() {
 
   const audit = {
     loanId: currentLoanId,
-    date: new Date().toISOString().split('T')[0],
+    date: document.getElementById('audit-date-field')?.value || new Date().toISOString().split('T')[0],
     auditor: document.getElementById('auditor-name-display').textContent || 'Auditor',
     tw,
     excessFunding: document.getElementById('excess-select').value,
@@ -691,6 +777,14 @@ function handleSubmit() {
 
 function clearForm() {
   currentLoanId = null;
+  initAuditDate();
+  document.getElementById('audit-date-field').setAttribute('readonly', true);
+  document.getElementById('audit-date-field').style.borderColor = '';
+  document.getElementById('audit-date-lock-btn').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Edit';
+  document.getElementById('audit-date-lock-btn').style.color = '';
+  document.getElementById('audit-date-lock-btn').style.borderColor = '';
+  document.getElementById('audit-date-hint').textContent = 'Locked — click Edit to change';
+  document.getElementById('audit-date-hint').style.color = '';
   document.getElementById('loan-id-input').value = '';
   document.getElementById('tw-input').value = '';
   document.getElementById('excess-select').value = 'No';
@@ -1062,6 +1156,7 @@ function closeModal(e) {
 // ── INIT ──
 showLoadingState('reports-tbody', 8, 'Loading audits from Firestore...');
 showLoadingState('tw-tbody', 8, 'Loading...');
+initAuditDate();
 Promise.all([loadAudits(), loadActiveLoans()]).then(() => {
   if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
   loadUnauditedLoans();
