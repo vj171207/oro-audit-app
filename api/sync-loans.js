@@ -27,18 +27,26 @@ async function getFirebaseToken() {
 }
 
 async function getExistingLoanIds(token) {
-  // Fetch all loan IDs already in Firestore
-  const res = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/audits?pageSize=1000`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  const data = await res.json();
-  if (!data.documents) return new Set();
-  return new Set(
-    data.documents
-      .map(doc => doc.fields?.loanId?.stringValue)
-      .filter(Boolean)
-  );
+  // Paginate through ALL Firestore documents — pageSize=1000 cap means we must loop
+  const existingIds = new Set();
+  let pageToken = null;
+
+  do {
+    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/audits?pageSize=1000${pageToken ? '&pageToken=' + pageToken : ''}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+
+    if (data.documents) {
+      data.documents.forEach(doc => {
+        const loanId = doc.fields?.loanId?.stringValue;
+        if (loanId) existingIds.add(loanId);
+      });
+    }
+
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+
+  return existingIds;
 }
 
 async function getActiveLoansFromMetabase() {
