@@ -1083,6 +1083,61 @@ function openModal(docId) {
   const a = auditStore.find(x => x.id === docId);
   if (!a) return;
   document.getElementById('modal-loan-id').textContent = a.loanId;
+
+  // Build ornament section if data exists
+  const ornaments = a.ornaments || [];
+  const ornamentHTML = ornaments.length > 0 ? `
+    <div class="modal-section">Ornament audit data</div>
+    ${ornaments.map((o, i) => `
+      <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); padding:12px 16px; margin-bottom:10px;">
+        <div style="font-size:13px; font-weight:600; color:var(--gold); margin-bottom:10px;">${o.type} — Ornament ${i + 1}</div>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:8px;">
+          <div>
+            <div class="mfl">Gross weight</div>
+            <div style="font-size:12px; margin-top:2px;">
+              <span style="color:var(--text-3);">PC: ${o.gwPC || '—'}g</span>
+              &nbsp;→&nbsp;
+              <span style="font-weight:600; color:${o.gwAudit && o.gwPC && Math.abs(parseFloat(o.gwAudit) - parseFloat(o.gwPC)) > 0.3 ? 'var(--danger)' : 'var(--text-1)'};">Audit: ${o.gwAudit || '—'}g</span>
+            </div>
+          </div>
+          <div>
+            <div class="mfl">Karat</div>
+            <div style="font-size:12px; margin-top:2px;">
+              <span style="color:var(--text-3);">PC: ${o.karatPC || '—'}kt</span>
+              &nbsp;→&nbsp;
+              <span style="font-weight:600; color:${o.karatAudit && o.karatPC && parseInt(o.karatAudit) !== parseInt(o.karatPC) ? 'var(--danger)' : 'var(--text-1)'};">Audit: ${o.karatAudit || '—'}kt</span>
+            </div>
+          </div>
+          <div>
+            <div class="mfl">Net weight</div>
+            <div style="font-size:12px; margin-top:2px;">
+              <span style="color:var(--text-3);">PC: ${o.nwPC || '—'}g</span>
+              &nbsp;→&nbsp;
+              <span style="font-weight:600; color:${o.nwAudit && o.nwPC && Math.abs(parseFloat(o.nwAudit) - parseFloat(o.nwPC)) > 0.3 ? 'var(--danger)' : 'var(--text-1)'};">Audit: ${o.nwAudit || '—'}g</span>
+            </div>
+          </div>
+          <div>
+            <div class="mfl">Stone deduction</div>
+            <div style="font-size:12px; margin-top:2px;">
+              <span style="color:var(--text-3);">PC: ${o.stoneDedPC || '—'}g</span>
+              &nbsp;→&nbsp;
+              <span style="font-weight:600;">Audit: ${o.stoneDedAudit || '—'}g</span>
+            </div>
+          </div>
+          <div>
+            <div class="mfl">Hallmark</div>
+            <div class="mfv">${o.hallmark || '—'}</div>
+          </div>
+          <div>
+            <div class="mfl">Spurious</div>
+            <div class="mfv" style="color:${o.spurious === 'Yes' ? 'var(--danger)' : 'inherit'}; font-weight:${o.spurious === 'Yes' ? '600' : 'normal'}">${o.spurious || '—'}</div>
+          </div>
+        </div>
+        ${o.newPacketId ? `<div style="font-size:12px;"><span class="mfl">New packet ID:</span> ${o.newPacketId}</div>` : ''}
+      </div>
+    `).join('')}
+  ` : `<div class="modal-section">Ornament audit data</div><div style="font-size:13px; color:var(--text-3); padding:8px 0 16px;">No ornament detail available for this record.</div>`;
+
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-section">Audit summary</div>
     <div class="modal-grid">
@@ -1099,6 +1154,7 @@ function openModal(docId) {
       <div><div class="mfl">Excess funding</div><div class="mfv" style="color:${a.excessFunding === 'Yes' ? 'var(--danger)' : 'inherit'}">${a.excessFunding}${a.excessAmount ? ' — ₹' + Number(a.excessAmount).toLocaleString('en-IN') : ''}</div></div>
       <div><div class="mfl">Spurious</div><div class="mfv" style="color:${a.spurious === 'Yes' ? 'var(--danger)' : 'inherit'}">${a.spurious}</div></div>
     </div>
+    ${ornamentHTML}
     ${a.remarks ? `<div class="modal-section">Remarks</div><div class="remarks-block">${a.remarks}</div>` : ''}
   `;
   document.getElementById('audit-modal').classList.remove('hidden');
