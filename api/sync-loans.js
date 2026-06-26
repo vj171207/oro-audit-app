@@ -162,8 +162,8 @@ export default async function handler(req, res) {
     // Update last sync timestamp in app_settings
     const syncTime = new Date().toISOString();
     try {
-      await fetch(
-        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/app_settings/config`,
+      const settingsRes = await fetch(
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/app_settings/config?updateMask.fieldPaths=lastSyncAt`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -172,6 +172,8 @@ export default async function handler(req, res) {
           })
         }
       );
+      const settingsData = await settingsRes.json();
+      console.log('lastSyncAt updated:', settingsData.fields?.lastSyncAt?.stringValue || 'failed');
     } catch (e) {
       console.warn('Failed to update lastSyncAt:', e.message);
     }
