@@ -1173,14 +1173,16 @@ function loadSettingsPanel() {
   document.getElementById('info-active-loans').textContent = activeLoanIds.size;
   document.getElementById('info-pending-days').textContent = PENDING_DAYS + ' days';
   document.getElementById('info-tw-threshold').textContent = TW_THRESHOLD + 'g';
-  const syncRecords = auditStore.filter(a => a.source === 'metabase-sync' && a.syncedAt);
-  if (syncRecords.length) {
-    const latest = syncRecords.sort((a, b) => (b.syncedAt || '').localeCompare(a.syncedAt || ''))[0];
-    const d = new Date(latest.syncedAt);
-    document.getElementById('info-last-sync').textContent = d.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'});
-  } else {
-    document.getElementById('info-last-sync').textContent = 'No sync on record';
-  }
+  db.collection('app_settings').doc('config').get().then(doc => {
+    if (doc.exists && doc.data().lastSyncAt) {
+      const d = new Date(doc.data().lastSyncAt);
+      document.getElementById('info-last-sync').textContent = d.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'});
+    } else {
+      document.getElementById('info-last-sync').textContent = 'No sync on record';
+    }
+  }).catch(() => {
+    document.getElementById('info-last-sync').textContent = '—';
+  });
 }
 
 async function saveAuditSettings() {
