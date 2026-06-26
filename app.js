@@ -723,6 +723,9 @@ function handleSubmit() {
       document.getElementById('submit-row').classList.add('hidden');
       document.getElementById('success-bar').classList.remove('hidden');
       setStep(4);
+      // Refresh All Audits in background so it's up to date when navigated to
+      populateReportFilters();
+      renderAllAudits();
     })
     .catch(err => {
       alert('Failed to save. Check your connection and try again.');
@@ -1016,9 +1019,11 @@ function renderAllAudits(search = '') {
     return true;
   });
 
-  // Update result count
+  // Update result count and wire up report button
   const countEl = document.getElementById('rf-result-count');
   if (countEl) countEl.textContent = filtered.length !== total ? filtered.length + ' of ' + total + ' results' : total + ' results';
+  // Store filtered data for report generation
+  window._lastFilteredAudits = filtered;
 
   const tbody = document.getElementById('reports-tbody');
   if (!filtered.length) {
@@ -1079,6 +1084,45 @@ function populateReportFilters() {
 // ────────────────────────────
 // MODAL
 // ────────────────────────────
+function generateReport() {
+  const data = window._lastFilteredAudits || [];
+  if (!data.length) { alert('No audits to export.'); return; }
+
+  // Build rows
+  const rows = [
+    ['Loan ID', 'Branch', 'City', 'Audit Date', 'Auditor', 'Loan Amount', 'Excess Funding', 'Excess Amount (₹)', 'Spurious', 'Spurious Ornaments', 'Tare Weight (g)', 'Loan Status', 'Remarks']
+  ];
+
+  data.forEach(a => {
+    rows.push([
+      a.loanId,
+      a.branch || '—',
+      a.city || '—',
+      a.date || '—',
+      a.auditor || '—',
+      a.loanAmount || '—',
+      a.excessFunding || '—',
+      a.excessAmount || 0,
+      a.spurious || '—',
+      (a.spuriousOrnaments || []).join(', ') || '—',
+      a.tw != null ? Number(a.tw).toFixed(2) : '—',
+      activeLoanIds.has(a.loanId) ? 'Active' : 'Inactive',
+      a.remarks || '—'
+    ]);
+  });
+
+  // Convert to CSV and download
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const today = new Date().toISOString().split('T')[0];
+  a.href = url;
+  a.download = `Oro_Audit_Report_${today}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function openModal(docId) {
   const a = auditStore.find(x => x.id === docId);
   if (!a) return;
