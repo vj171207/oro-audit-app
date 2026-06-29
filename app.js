@@ -1207,7 +1207,7 @@ function onLoginSuccess() {
   document.getElementById('auditor-role-display').textContent = currentUserRole === 'manager' ? 'Manager' : 'Auditor';
 
   // Hide settings nav for auditors
-  const settingsBtn = document.querySelector('[onclick="switchSection('settings', this)"]');
+  const settingsBtn = document.querySelector("[onclick=\"switchSection('settings', this)\"]");
   if (settingsBtn) settingsBtn.style.display = currentUserRole === 'manager' ? '' : 'none';
 
   // Hide login, show app
@@ -1237,7 +1237,7 @@ function handleSignOut() {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
     document.getElementById('new-audit').classList.add('active');
-    document.querySelector('[onclick="switchSection('new-audit', this)"]').classList.add('active');
+    document.querySelector("[onclick=\"switchSection('new-audit', this)\"]").classList.add('active');
   });
 }
 
