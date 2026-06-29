@@ -1268,30 +1268,35 @@ async function loadUsersList() {
 
 async function addUser() {
   const email = document.getElementById('new-user-email').value.trim();
+  const password = document.getElementById('new-user-password').value.trim();
   const role = document.getElementById('new-user-role').value;
   const statusEl = document.getElementById('user-mgmt-status');
 
   if (!email) { statusEl.textContent = '❌ Please enter an email.'; statusEl.style.color = 'var(--danger)'; return; }
+  if (!password || password.length < 6) { statusEl.textContent = '❌ Password must be at least 6 characters.'; statusEl.style.color = 'var(--danger)'; return; }
 
-  statusEl.textContent = 'Adding user...';
+  statusEl.textContent = 'Creating user...';
   statusEl.style.color = 'var(--text-3)';
 
   try {
-    // Create Firebase Auth user via Admin — we store in Firestore with a temp doc
-    // Manager must set password separately via Firebase console or password reset email
-    // Store user record in Firestore users collection (uid will be set on first login)
-    const tempId = email.replace(/[@.]/g, '_');
-    await db.collection('users').doc(tempId).set({
-      email,
-      role,
-      createdAt: new Date().toISOString(),
-      uid: tempId,
-      pendingSetup: true
+    const res = await fetch('/api/create-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, role })
     });
+    const data = await res.json();
+
+    if (data.error) {
+      statusEl.textContent = '❌ ' + data.error;
+      statusEl.style.color = 'var(--danger)';
+      return;
+    }
 
     document.getElementById('new-user-email').value = '';
-    statusEl.textContent = '✓ User added. Create their Firebase Auth account and send them a password reset email from Firebase console.';
+    document.getElementById('new-user-password').value = '';
+    statusEl.textContent = '✓ User created. They can now log in with the provided password.';
     statusEl.style.color = 'var(--success)';
+    setTimeout(() => statusEl.textContent = '', 5000);
     loadUsersList();
   } catch(err) {
     statusEl.textContent = '❌ Failed: ' + err.message;
