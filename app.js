@@ -1495,8 +1495,8 @@ function openModal(docId) {
     <div class="modal-section">Audit summary</div>
     <div class="modal-grid">
       <div><div class="mfl">Loan ID</div><div class="mfv" style="font-family:monospace">${a.loanId}</div></div>
-      <div><div class="mfl">Loan booking date</div><div class="mfv">${a.loanBookingDate || '—'}</div></div>
-      <div><div class="mfl">Audit date</div><div class="mfv">${a.date}</div></div>
+      <div><div class="mfl">Loan booking date</div><div class="mfv">${formatDate(a.loanBookingDate) || '—'}</div></div>
+      <div><div class="mfl">Audit date</div><div class="mfv">${formatDate(a.date)}</div></div>
       <div><div class="mfl">Auditor</div><div class="mfv">${a.auditor}</div></div>
       <div><div class="mfl">Branch</div><div class="mfv">${a.branch || '—'}</div></div>
       <div><div class="mfl">City</div><div class="mfv">${a.city || '—'}</div></div>
