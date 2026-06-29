@@ -596,10 +596,14 @@
         <div class="card" style="margin-bottom:16px;" id="user-mgmt-card">
           <div style="font-size:13px; font-weight:600; color:var(--text-1); margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--border);">User management</div>
           <div id="users-list" style="margin-bottom:16px;"></div>
-          <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:flex-end;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:flex-end;">
             <div class="fg">
               <label class="fl">Email</label>
               <input type="email" class="fi" id="new-user-email" placeholder="user@orocorp.in" style="height:36px; margin-top:6px;" />
+            </div>
+            <div class="fg">
+              <label class="fl">Password</label>
+              <input type="password" class="fi" id="new-user-password" placeholder="Min 6 characters" style="height:36px; margin-top:6px;" />
             </div>
             <div class="fg">
               <label class="fl">Role</label>
