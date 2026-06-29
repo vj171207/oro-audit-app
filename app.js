@@ -754,6 +754,11 @@ function handleSubmit() {
       // Refresh All Audits in background so it's up to date when navigated to
       populateReportFilters();
       renderAllAudits();
+      // Delete the metabase-sync placeholder for this loan (no longer needed)
+      const pendingDocId = currentLoanId + '_pending';
+      db.collection('audits').doc(pendingDocId).delete()
+        .then(() => console.log('Cleaned up placeholder:', pendingDocId))
+        .catch(() => {}); // Silent — placeholder may not exist, that's fine
     })
     .catch(err => {
       alert('Failed to save. Check your connection and try again.');
