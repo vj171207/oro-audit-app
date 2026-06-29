@@ -17,6 +17,11 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const COLLECTION = 'audits';
+const auth = firebase.auth();
+
+// ── Current user state ──
+let currentUser = null;
+let currentUserRole = 'auditor';
 
 // ── Audit store ──
 let auditStore = [];
@@ -722,7 +727,7 @@ function handleSubmit() {
   const audit = {
     loanId: currentLoanId,
     date: document.getElementById('audit-date-field')?.value || new Date().toISOString().split('T')[0],
-    auditor: document.getElementById('auditor-name-display').textContent || 'Auditor',
+    auditor: currentUser ? (currentUser.email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase())) : (document.getElementById('auditor-name-display').textContent || 'Auditor'),
     tw,
     excessFunding: document.getElementById('excess-select').value,
     excessAmount: parseFloat(document.getElementById('excess-amount-input')?.value) || 0,
@@ -1152,6 +1157,157 @@ function generateReport() {
 }
 
 
+
+// ────────────────────────────
+// AUTH — LOGIN / LOGOUT
+// ────────────────────────────
+function handleLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+
+  if (!email || !password) { errorEl.textContent = 'Please enter your email and password.'; return; }
+
+  btn.textContent = 'Signing in...';
+  btn.disabled = true;
+  errorEl.textContent = '';
+
+  auth.signInWithEmailAndPassword(email, password)
+    .then(userCred => {
+      currentUser = userCred.user;
+      return db.collection('users').doc(currentUser.uid).get();
+    })
+    .then(doc => {
+      if (!doc.exists) {
+        auth.signOut();
+        throw new Error('Access denied. Your account is not authorised for this app.');
+      }
+      const data = doc.data();
+      currentUserRole = data.role || 'auditor';
+      onLoginSuccess();
+    })
+    .catch(err => {
+      let msg = err.message;
+      if (msg.includes('wrong-password') || msg.includes('user-not-found') || msg.includes('invalid-credential')) {
+        msg = 'Incorrect email or password.';
+      }
+      errorEl.textContent = msg;
+      btn.textContent = 'Sign in';
+      btn.disabled = false;
+    });
+}
+
+function onLoginSuccess() {
+  // Update sidebar with user info
+  const email = currentUser.email;
+  const name = email.split('@')[0].replace(/\./g, ' ').replace(/\w/g, c => c.toUpperCase());
+  document.getElementById('auditor-name-display').textContent = name;
+  document.getElementById('auditor-initials').textContent = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  document.getElementById('auditor-role-display').textContent = currentUserRole === 'manager' ? 'Manager' : 'Auditor';
+
+  // Hide settings nav for auditors
+  const settingsBtn = document.querySelector('[onclick="switchSection('settings', this)"]');
+  if (settingsBtn) settingsBtn.style.display = currentUserRole === 'manager' ? '' : 'none';
+
+  // Hide login, show app
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = '';
+
+  // Load app data
+  initAuditDate();
+  Promise.all([loadAudits(), loadActiveLoans(), loadSettings()]).then(() => {
+    if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
+    loadUnauditedLoans();
+  });
+}
+
+function handleSignOut() {
+  auth.signOut().then(() => {
+    currentUser = null;
+    currentUserRole = 'auditor';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-shell').style.display = 'none';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('login-btn').textContent = 'Sign in';
+    document.getElementById('login-btn').disabled = false;
+    // Reset to new audit tab
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('new-audit').classList.add('active');
+    document.querySelector('[onclick="switchSection('new-audit', this)"]').classList.add('active');
+  });
+}
+
+// ────────────────────────────
+// USER MANAGEMENT (Settings)
+// ────────────────────────────
+async function loadUsersList() {
+  const listEl = document.getElementById('users-list');
+  if (!listEl) return;
+  try {
+    const snapshot = await db.collection('users').get();
+    if (snapshot.empty) { listEl.innerHTML = '<div style="font-size:13px; color:var(--text-3);">No users yet.</div>'; return; }
+    listEl.innerHTML = snapshot.docs.map(doc => {
+      const d = doc.data();
+      return `<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:8px;">
+        <div>
+          <div style="font-size:13px; font-weight:500;">${d.email}</div>
+          <div style="font-size:11px; color:var(--text-3); margin-top:2px;">${d.role === 'manager' ? 'Manager' : 'Auditor'}</div>
+        </div>
+        ${d.uid !== currentUser?.uid ? `<button class="btn-ghost" onclick="removeUser('${doc.id}', '${d.email}')" style="height:28px; font-size:12px; color:var(--danger); border-color:var(--danger);">Remove</button>` : '<span style="font-size:11px; color:var(--text-3);">You</span>'}
+      </div>`;
+    }).join('');
+  } catch(err) {
+    listEl.innerHTML = '<div style="font-size:13px; color:var(--danger);">Failed to load users.</div>';
+  }
+}
+
+async function addUser() {
+  const email = document.getElementById('new-user-email').value.trim();
+  const role = document.getElementById('new-user-role').value;
+  const statusEl = document.getElementById('user-mgmt-status');
+
+  if (!email) { statusEl.textContent = '❌ Please enter an email.'; statusEl.style.color = 'var(--danger)'; return; }
+
+  statusEl.textContent = 'Adding user...';
+  statusEl.style.color = 'var(--text-3)';
+
+  try {
+    // Create Firebase Auth user via Admin — we store in Firestore with a temp doc
+    // Manager must set password separately via Firebase console or password reset email
+    // Store user record in Firestore users collection (uid will be set on first login)
+    const tempId = email.replace(/[@.]/g, '_');
+    await db.collection('users').doc(tempId).set({
+      email,
+      role,
+      createdAt: new Date().toISOString(),
+      uid: tempId,
+      pendingSetup: true
+    });
+
+    document.getElementById('new-user-email').value = '';
+    statusEl.textContent = '✓ User added. Create their Firebase Auth account and send them a password reset email from Firebase console.';
+    statusEl.style.color = 'var(--success)';
+    loadUsersList();
+  } catch(err) {
+    statusEl.textContent = '❌ Failed: ' + err.message;
+    statusEl.style.color = 'var(--danger)';
+  }
+}
+
+async function removeUser(docId, email) {
+  if (!confirm(`Remove ${email}? They will lose app access.`)) return;
+  try {
+    await db.collection('users').doc(docId).delete();
+    loadUsersList();
+  } catch(err) {
+    alert('Failed to remove user: ' + err.message);
+  }
+}
+
 // ────────────────────────────
 // SETTINGS
 // ────────────────────────────
@@ -1161,9 +1317,13 @@ function unlockSettings() {
     document.getElementById('settings-password-error').textContent = '❌ Incorrect password.';
     return;
   }
+  // Hide user management for non-managers
+  const userMgmt = document.getElementById('user-mgmt-card');
+  if (userMgmt) userMgmt.style.display = currentUserRole === 'manager' ? 'block' : 'none';
   document.getElementById('settings-locked').style.display = 'none';
   document.getElementById('settings-content').style.display = 'block';
   loadSettingsPanel();
+  loadUsersList();
 }
 
 function loadSettingsPanel() {
@@ -1321,8 +1481,4 @@ function closeModal(e) {
 // ── INIT ──
 showLoadingState('reports-tbody', 8, 'Loading audits from Firestore...');
 showLoadingState('tw-tbody', 8, 'Loading...');
-initAuditDate();
-Promise.all([loadAudits(), loadActiveLoans(), loadSettings()]).then(() => {
-  if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
-  loadUnauditedLoans();
-});
+// App init is triggered by onLoginSuccess() after successful authentication
