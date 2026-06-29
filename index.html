@@ -11,7 +11,30 @@
 </head>
 <body>
 
-<div class="app-shell">
+<!-- Login screen -->
+<div id="login-screen" style="position:fixed; inset:0; background:var(--surface-1); display:flex; align-items:center; justify-content:center; z-index:9999;">
+  <div style="width:100%; max-width:380px; padding:0 24px;">
+    <div style="text-align:center; margin-bottom:32px;">
+      <div style="font-size:28px; margin-bottom:8px;">⬡</div>
+      <div style="font-size:20px; font-weight:700; color:var(--text-1);">Oro Audit</div>
+      <div style="font-size:13px; color:var(--text-3); margin-top:4px;">Sign in to continue</div>
+    </div>
+    <div class="card" style="padding:24px;">
+      <div class="fg" style="margin-bottom:14px;">
+        <label class="fl">Email</label>
+        <input type="email" id="login-email" class="fi" placeholder="you@orocorp.in" style="margin-top:6px;" onkeydown="if(event.key==='Enter') document.getElementById('login-password').focus()" />
+      </div>
+      <div class="fg" style="margin-bottom:20px;">
+        <label class="fl">Password</label>
+        <input type="password" id="login-password" class="fi" placeholder="Password" style="margin-top:6px;" onkeydown="if(event.key==='Enter') handleLogin()" />
+      </div>
+      <div id="login-error" style="font-size:12px; color:var(--danger); margin-bottom:12px; min-height:16px;"></div>
+      <button class="btn-dark" onclick="handleLogin()" id="login-btn" style="width:100%; height:40px; font-size:14px;">Sign in</button>
+    </div>
+  </div>
+</div>
+
+<div class="app-shell" id="app-shell" style="display:none;">
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -42,9 +65,10 @@
         <div class="auditor-avatar" id="auditor-initials">—</div>
         <div class="auditor-info">
           <div class="auditor-name" id="auditor-name-display">Auditor</div>
-          <div class="auditor-role">Audit personnel</div>
+          <div class="auditor-role" id="auditor-role-display">Audit personnel</div>
         </div>
       </div>
+      <button onclick="handleSignOut()" style="margin-top:10px; width:100%; height:30px; font-size:12px; font-family:inherit; background:none; border:1px solid var(--border); border-radius:var(--r-sm); cursor:pointer; color:var(--text-3);">Sign out</button>
     </div>
   </aside>
 
@@ -568,6 +592,27 @@
           </div>
         </div>
 
+        <!-- User management -->
+        <div class="card" style="margin-bottom:16px;" id="user-mgmt-card">
+          <div style="font-size:13px; font-weight:600; color:var(--text-1); margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--border);">User management</div>
+          <div id="users-list" style="margin-bottom:16px;"></div>
+          <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:flex-end;">
+            <div class="fg">
+              <label class="fl">Email</label>
+              <input type="email" class="fi" id="new-user-email" placeholder="user@orocorp.in" style="height:36px; margin-top:6px;" />
+            </div>
+            <div class="fg">
+              <label class="fl">Role</label>
+              <select class="fs" id="new-user-role" style="height:36px; margin-top:6px;">
+                <option value="auditor">Auditor</option>
+                <option value="manager">Manager</option>
+              </select>
+            </div>
+            <button class="btn-dark" onclick="addUser()" style="height:36px; font-size:13px; white-space:nowrap;">Add user</button>
+          </div>
+          <div id="user-mgmt-status" style="font-size:12px; margin-top:8px;"></div>
+        </div>
+
         <!-- App info -->
         <div class="card">
           <div style="font-size:13px; font-weight:600; color:var(--text-1); margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--border);">App info</div>
@@ -600,6 +645,7 @@
 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="app.js"></script>
