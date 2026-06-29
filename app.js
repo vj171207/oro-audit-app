@@ -736,6 +736,7 @@ function handleSubmit() {
     city: document.getElementById('f-city').textContent,
     branch: document.getElementById('f-branch').textContent,
     loanAmount: document.getElementById('f-amount').textContent,
+    loanBookingDate: document.getElementById('f-date').textContent || '—',
     remarks: document.getElementById('audit-remarks')?.value || '',
     ornaments: auditedOrnaments,
     submittedAt: new Date().toISOString(),
@@ -1489,6 +1490,7 @@ function openModal(docId) {
     <div class="modal-section">Audit summary</div>
     <div class="modal-grid">
       <div><div class="mfl">Loan ID</div><div class="mfv" style="font-family:monospace">${a.loanId}</div></div>
+      <div><div class="mfl">Loan booking date</div><div class="mfv">${a.loanBookingDate || '—'}</div></div>
       <div><div class="mfl">Audit date</div><div class="mfv">${a.date}</div></div>
       <div><div class="mfl">Auditor</div><div class="mfv">${a.auditor}</div></div>
       <div><div class="mfl">Branch</div><div class="mfv">${a.branch || '—'}</div></div>
