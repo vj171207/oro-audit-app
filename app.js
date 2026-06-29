@@ -1258,7 +1258,12 @@ async function loadUsersList() {
           <div style="font-size:13px; font-weight:500;">${d.email}</div>
           <div style="font-size:11px; color:var(--text-3); margin-top:2px;">${d.role === 'manager' ? 'Manager' : 'Auditor'}</div>
         </div>
-        ${d.uid !== currentUser?.uid ? `<button class="btn-ghost" onclick="removeUser('${doc.id}', '${d.email}')" style="height:28px; font-size:12px; color:var(--danger); border-color:var(--danger);">Remove</button>` : '<span style="font-size:11px; color:var(--text-3);">You</span>'}
+        ${d.uid !== currentUser?.uid
+          ? `<div style="display:flex; gap:6px;">
+              <button class="btn-ghost" onclick="resetUserPassword('${d.email}')" style="height:28px; font-size:12px;">Reset pwd</button>
+              <button class="btn-ghost" onclick="removeUser('${doc.id}', '${d.email}')" style="height:28px; font-size:12px; color:var(--danger); border-color:var(--danger);">Remove</button>
+             </div>`
+          : '<span style="font-size:11px; color:var(--text-3);">You</span>'}
       </div>`;
     }).join('');
   } catch(err) {
@@ -1377,23 +1382,47 @@ async function saveAuditSettings() {
   }
 }
 
-async function changeSettingsPassword() {
+async function changeMyPassword() {
   const current = document.getElementById('setting-current-password').value.trim();
   const newPwd = document.getElementById('setting-new-password').value.trim();
   const statusEl = document.getElementById('password-change-status');
-  if (current !== SETTINGS_PASSWORD) { statusEl.textContent = '❌ Current password incorrect.'; statusEl.style.color = 'var(--danger)'; return; }
-  if (!newPwd || newPwd.length < 6) { statusEl.textContent = '❌ Must be at least 6 characters.'; statusEl.style.color = 'var(--danger)'; return; }
+  if (!current) { statusEl.textContent = '❌ Enter your current password.'; statusEl.style.color = 'var(--danger)'; return; }
+  if (!newPwd || newPwd.length < 6) { statusEl.textContent = '❌ New password must be at least 6 characters.'; statusEl.style.color = 'var(--danger)'; return; }
   try {
-    await db.collection('app_settings').doc('config').set({ settingsPassword: newPwd, updatedAt: new Date().toISOString() }, { merge: true });
-    SETTINGS_PASSWORD = newPwd;
+    // Re-authenticate first, then update password
+    const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, current);
+    await auth.currentUser.reauthenticateWithCredential(credential);
+    await auth.currentUser.updatePassword(newPwd);
     document.getElementById('setting-current-password').value = '';
     document.getElementById('setting-new-password').value = '';
-    statusEl.textContent = '✓ Password changed';
+    statusEl.textContent = '✓ Password changed successfully.';
     statusEl.style.color = 'var(--success)';
-    setTimeout(() => statusEl.textContent = '', 3000);
+    setTimeout(() => statusEl.textContent = '', 4000);
   } catch (err) {
-    statusEl.textContent = '❌ Failed to save.';
+    if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      statusEl.textContent = '❌ Current password is incorrect.';
+    } else {
+      statusEl.textContent = '❌ Failed: ' + err.message;
+    }
     statusEl.style.color = 'var(--danger)';
+  }
+}
+
+async function resetUserPassword(email) {
+  const newPwd = prompt(`Enter new password for ${email} (min 6 characters):`);
+  if (!newPwd) return;
+  if (newPwd.length < 6) { alert('Password must be at least 6 characters.'); return; }
+  try {
+    const res = await fetch('/api/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, newPassword: newPwd })
+    });
+    const data = await res.json();
+    if (data.error) { alert('Failed: ' + data.error); return; }
+    alert(`✓ Password reset for ${email}`);
+  } catch(err) {
+    alert('Failed: ' + err.message);
   }
 }
 
