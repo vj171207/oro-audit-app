@@ -1176,14 +1176,15 @@ function handleLogin() {
   auth.signInWithEmailAndPassword(email, password)
     .then(userCred => {
       currentUser = userCred.user;
-      return db.collection('users').doc(currentUser.uid).get();
+      // Look up by email to support both UID-keyed and email-keyed records
+      return db.collection('users').where('email', '==', currentUser.email).get();
     })
-    .then(doc => {
-      if (!doc.exists) {
+    .then(snapshot => {
+      if (snapshot.empty) {
         auth.signOut();
         throw new Error('Access denied. Your account is not authorised for this app.');
       }
-      const data = doc.data();
+      const data = snapshot.docs[0].data();
       currentUserRole = data.role || 'auditor';
       onLoginSuccess();
     })
