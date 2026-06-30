@@ -1058,8 +1058,8 @@ function renderAllAudits(search = '') {
   });
   const deduped = Object.values(loanMapAll);
   const total = deduped.length;
-  const excess = deduped.filter(a => a.excessFunding === 'Yes').length;
-  const spurious = deduped.filter(a => a.spurious === 'Yes').length;
+  const excess = deduped.filter(a => a.excessFunding === 'Yes' && activeLoanIds.has(a.loanId)).length;
+  const spurious = deduped.filter(a => a.spurious === 'Yes' && activeLoanIds.has(a.loanId)).length;
   const clean = deduped.filter(a => a.excessFunding === 'No' && a.spurious === 'No').length;
 
   const cards = document.getElementById('summary-grid').querySelectorAll('.sc-value');
