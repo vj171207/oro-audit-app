@@ -581,67 +581,78 @@ function initOrnamentStepper(ornaments) {
   currentOrnaments = ornaments;
   currentOrnamentIndex = 0;
   auditedOrnaments = [];
-  renderOrnamentStep();
+  renderAllOrnamentCards();
 }
 
-function renderOrnamentStep() {
-  const o = currentOrnaments[currentOrnamentIndex];
-  const total = currentOrnaments.length;
-  const idx = currentOrnamentIndex;
-
-  // Update label
-  document.getElementById('ornament-step-label').textContent =
-    o.type;
-
-  // Update dots
-  document.getElementById('ornament-step-dots').innerHTML = currentOrnaments.map((_, i) =>
-    `<div style="width:10px; height:10px; border-radius:50%; background:${i < idx ? 'var(--success)' : i === idx ? 'var(--gold)' : 'var(--border)'};"></div>`
-  ).join('');
-
-  // Clear fields
-  ['aud-gw','aud-stone','aud-karat','aud-packet','aud-count'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  document.getElementById('aud-hallmark').value = '';
-  const audSpurious = document.getElementById('aud-spurious'); if (audSpurious) audSpurious.value = 'No';
-  document.getElementById('aud-nw').value = '';
-
-  // Update button
-  const btn = document.getElementById('ornament-next-btn');
-  btn.textContent = idx === total - 1 ? 'Done — review ✓' : `Next ornament (${idx + 2} of ${total}) →`;
+function renderAllOrnamentCards() {
+  const container = document.getElementById('ornament-cards-container');
+  if (!container) return;
+  container.innerHTML = currentOrnaments.map((o, i) => `
+    <div style="border:1px solid var(--border); border-radius:var(--r-sm); padding:16px 20px; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+        <div style="font-size:15px; font-weight:600; color:var(--text-1);">${o.type}</div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <label style="font-size:12px; color:var(--text-3); white-space:nowrap;">Count</label>
+          <input type="number" min="1" step="1" class="fi" id="aud-count-${i}" placeholder="—"
+            style="width:64px; height:28px; font-size:13px; text-align:center;" />
+        </div>
+      </div>
+      <div class="form-grid-3">
+        <div class="fg"><label class="fl">GW as per audit (g)</label>
+          <input type="number" step="0.01" class="fi" id="aud-gw-${i}" placeholder="0.00"
+            oninput="autoCalcNWi(${i})" /></div>
+        <div class="fg"><label class="fl">Stone deduction (g)</label>
+          <input type="number" step="0.01" class="fi" id="aud-stone-${i}" placeholder="0.00"
+            oninput="autoCalcNWi(${i})" /></div>
+        <div class="fg"><label class="fl">Karat</label>
+          <input type="number" step="1" class="fi" id="aud-karat-${i}" placeholder="e.g. 22"
+            oninput="autoCalcNWi(${i})" /></div>
+        <div class="fg">
+          <label class="fl">NW (g) <span style="font-size:10px; color:var(--gold); font-weight:500;">Auto-calculated</span></label>
+          <input type="number" step="0.01" class="fi" id="aud-nw-${i}" placeholder="0.00" readonly
+            style="background:var(--surface-2); cursor:not-allowed; font-weight:600;" /></div>
+        <div class="fg"><label class="fl">Hallmark</label>
+          <select class="fs" id="aud-hallmark-${i}">
+            <option value="">Select</option><option>Yes</option><option>No</option>
+          </select></div>
+        <div class="fg"><label class="fl">Spurious</label>
+          <select class="fs" id="aud-spurious-${i}">
+            <option value="No">No</option><option value="Yes">Yes</option>
+          </select></div>
+        <div class="fg"><label class="fl">New / old packet ID</label>
+          <input type="text" class="fi" id="aud-packet-${i}" placeholder="Leave blank if unchanged" /></div>
+      </div>
+    </div>
+  `).join('');
 }
 
-function nextOrnament() {
-  // Save current ornament audit data
-  const o = currentOrnaments[currentOrnamentIndex];
-  auditedOrnaments.push({
+function autoCalcNWi(i) {
+  const gw = parseFloat(document.getElementById('aud-gw-' + i)?.value) || 0;
+  const stone = parseFloat(document.getElementById('aud-stone-' + i)?.value) || 0;
+  const nwEl = document.getElementById('aud-nw-' + i);
+  if (nwEl) nwEl.value = Math.max(0, gw - stone).toFixed(2);
+}
+
+function collectAndReview() {
+  auditedOrnaments = currentOrnaments.map((o, i) => ({
     type: o.type,
     count: o.count,
-    // Ops data (from PC)
     gwPC: o.gw,
     stoneDedPC: o.stoneDed,
     karatPC: o.karat,
     nwPC: o.nw,
-    // Audit data
-    gwAudit: document.getElementById('aud-gw').value,
-    stoneDedAudit: document.getElementById('aud-stone').value,
-    karatAudit: document.getElementById('aud-karat').value,
-    nwAudit: document.getElementById('aud-nw').value,
-    hallmark: document.getElementById('aud-hallmark').value,
-    countAudit: parseInt(document.getElementById('aud-count')?.value) || null,
-    spurious: document.getElementById('aud-spurious')?.value || 'No',
-    newPacketId: document.getElementById('aud-packet').value,
-  });
-
-  if (currentOrnamentIndex < currentOrnaments.length - 1) {
-    currentOrnamentIndex++;
-    renderOrnamentStep();
-  } else {
-    // All ornaments done — show preview
-    showAuditPreview();
-  }
+    gwAudit: document.getElementById('aud-gw-' + i)?.value || '',
+    stoneDedAudit: document.getElementById('aud-stone-' + i)?.value || '',
+    karatAudit: document.getElementById('aud-karat-' + i)?.value || '',
+    nwAudit: document.getElementById('aud-nw-' + i)?.value || '',
+    hallmark: document.getElementById('aud-hallmark-' + i)?.value || '',
+    countAudit: parseInt(document.getElementById('aud-count-' + i)?.value) || null,
+    spurious: document.getElementById('aud-spurious-' + i)?.value || 'No',
+    newPacketId: document.getElementById('aud-packet-' + i)?.value || '',
+  }));
+  showAuditPreview();
 }
+
 
 function showAuditPreview() {
   document.getElementById('card-audit').classList.add('hidden');
@@ -709,7 +720,7 @@ function goBackToAudit() {
   document.getElementById('card-audit').classList.remove('hidden');
   currentOrnamentIndex = 0;
   auditedOrnaments = [];
-  renderOrnamentStep();
+  renderAllOrnamentCards();
   setStep(2);
 }
 
