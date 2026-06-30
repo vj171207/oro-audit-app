@@ -1103,12 +1103,13 @@ function renderAllAudits(search = '') {
     }
   });
   const deduped = Object.values(loanMapAll);
-  const total = deduped.length;
-  const excess = deduped.filter(a => a.excessFunding === 'Yes' && activeLoanIds.has(a.loanId)).length;
-  const spurious = deduped.filter(a => a.spurious === 'Yes' && activeLoanIds.has(a.loanId)).length;
-  const clean = deduped.filter(a => a.excessFunding === 'No' && a.spurious === 'No').length;
+  const dedupedForStats = selectedBranch ? deduped.filter(a => a.branch === selectedBranch) : deduped;
+  const total = dedupedForStats.length;
+  const excess = dedupedForStats.filter(a => a.excessFunding === 'Yes' && activeLoanIds.has(a.loanId)).length;
+  const spurious = dedupedForStats.filter(a => a.spurious === 'Yes' && activeLoanIds.has(a.loanId)).length;
+  const clean = dedupedForStats.filter(a => a.excessFunding === 'No' && a.spurious === 'No').length;
 
-  const activeAudited = deduped.filter(a => activeLoanIds.has(a.loanId)).length;
+  const activeAudited = dedupedForStats.filter(a => activeLoanIds.has(a.loanId)).length;
   const cards = document.getElementById('summary-grid').querySelectorAll('.sc-value');
   cards[0].textContent = total;
   cards[1].textContent = excess;
