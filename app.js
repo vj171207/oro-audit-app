@@ -1098,11 +1098,13 @@ function renderAllAudits(search = '') {
   const spurious = deduped.filter(a => a.spurious === 'Yes' && activeLoanIds.has(a.loanId)).length;
   const clean = deduped.filter(a => a.excessFunding === 'No' && a.spurious === 'No').length;
 
+  const activeAudited = deduped.filter(a => activeLoanIds.has(a.loanId)).length;
   const cards = document.getElementById('summary-grid').querySelectorAll('.sc-value');
   cards[0].textContent = total;
   cards[1].textContent = excess;
   cards[2].textContent = spurious;
   cards[3].textContent = clean;
+  cards[4].textContent = activeAudited;
 
   // Read filter values
   const loanIdFilter = (document.getElementById('rf-loanid')?.value || '').toLowerCase();
