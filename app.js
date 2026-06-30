@@ -1045,6 +1045,30 @@ function populateBranchFilter() {
 }
 
 // ────────────────────────────
+// DEVIATION HELPERS
+// ────────────────────────────
+function hasWeightMismatch(audit) {
+  if (!audit.ornaments || !audit.ornaments.length) return false;
+  return audit.ornaments.some(o => {
+    const gwPc = parseFloat(o.gwPC);
+    const gwAudit = parseFloat(o.gwAudit);
+    if (isNaN(gwPc) || isNaN(gwAudit)) return false;
+    return Math.abs(gwPc - gwAudit) > 0.03;
+  });
+}
+
+function hasDeviation(audit, type) {
+  switch (type) {
+    case 'excess':  return audit.excessFunding === 'Yes';
+    case 'spurious': return audit.spurious === 'Yes';
+    case 'weight':  return hasWeightMismatch(audit);
+    case 'any':     return audit.excessFunding === 'Yes' || audit.spurious === 'Yes' || hasWeightMismatch(audit);
+    case 'none':    return audit.excessFunding !== 'Yes' && audit.spurious !== 'Yes' && !hasWeightMismatch(audit);
+    default:        return true;
+  }
+}
+
+// ────────────────────────────
 // ALL AUDITS
 // ────────────────────────────
 function renderAllAudits(search = '') {
@@ -1072,8 +1096,7 @@ function renderAllAudits(search = '') {
   const loanIdFilter = (document.getElementById('rf-loanid')?.value || '').toLowerCase();
   const branchFilter = document.getElementById('rf-branch')?.value || '';
   const auditorFilter = document.getElementById('rf-auditor')?.value || '';
-  const excessFilter = document.getElementById('rf-excess')?.value || '';
-  const spuriousFilter = document.getElementById('rf-spurious')?.value || '';
+  const deviationFilter = document.getElementById('rf-deviation')?.value || '';
   const loanStatusFilter = document.getElementById('rf-loanstatus')?.value || '';
   const dateFrom = document.getElementById('rf-date-from')?.value || '';
   const dateTo = document.getElementById('rf-date-to')?.value || '';
@@ -1082,8 +1105,7 @@ function renderAllAudits(search = '') {
     if (loanIdFilter && !a.loanId.toLowerCase().includes(loanIdFilter)) return false;
     if (branchFilter && a.branch !== branchFilter) return false;
     if (auditorFilter && a.auditor !== auditorFilter) return false;
-    if (excessFilter && a.excessFunding !== excessFilter) return false;
-    if (spuriousFilter && a.spurious !== spuriousFilter) return false;
+    if (deviationFilter && !hasDeviation(a, deviationFilter)) return false;
     if (loanStatusFilter === 'active' && !activeLoanIds.has(a.loanId)) return false;
     if (loanStatusFilter === 'inactive' && activeLoanIds.has(a.loanId)) return false;
     if (dateFrom && a.date < dateFrom) return false;
@@ -1139,7 +1161,7 @@ function applyReportFilters() {
 
 function clearReportFilters() {
   ['rf-loanid'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  ['rf-branch','rf-auditor','rf-excess','rf-spurious','rf-loanstatus'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['rf-branch','rf-auditor','rf-deviation','rf-loanstatus'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['rf-date-from','rf-date-to'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   renderAllAudits();
 }
