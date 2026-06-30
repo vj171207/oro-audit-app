@@ -22,7 +22,6 @@ const auth = firebase.auth();
 // ── Current user state ──
 let currentUser = null;
 let currentUserRole = 'auditor';
-let selectedBranch = ''; // '' means all branches (manager default)
 
 // ── Audit store ──
 let auditStore = [];
@@ -338,7 +337,7 @@ function loadUnauditedLoans() {
       }
 
       // Only show loans that have never been audited through the app
-      const unaudited = (data.loans || []).filter(l => !auditedIds.has(l.loanNumber) && (!selectedBranch || l.branch === selectedBranch));
+      const unaudited = (data.loans || []).filter(l => !auditedIds.has(l.loanNumber));
 
       if (!unaudited.length) {
         document.getElementById('unaudited-count').textContent = 'All active loans have been audited.';
@@ -876,7 +875,7 @@ function renderTWTable(search = '', filter = twFilter) {
     <div class="stat-chip danger">${flagged} flagged</div>
   `;
 
-  const branchFilter = selectedBranch || document.getElementById('tw-branch-filter')?.value || '';
+  const branchFilter = document.getElementById('tw-branch-filter')?.value || '';
   const dateFrom = document.getElementById('tw-date-from')?.value || '';
   const dateTo = document.getElementById('tw-date-to')?.value || '';
 
@@ -1103,13 +1102,12 @@ function renderAllAudits(search = '') {
     }
   });
   const deduped = Object.values(loanMapAll);
-  const dedupedForStats = selectedBranch ? deduped.filter(a => a.branch === selectedBranch) : deduped;
-  const total = dedupedForStats.length;
-  const excess = dedupedForStats.filter(a => a.excessFunding === 'Yes' && activeLoanIds.has(a.loanId)).length;
-  const spurious = dedupedForStats.filter(a => a.spurious === 'Yes' && activeLoanIds.has(a.loanId)).length;
-  const clean = dedupedForStats.filter(a => a.excessFunding === 'No' && a.spurious === 'No').length;
+  const total = deduped.length;
+  const excess = deduped.filter(a => a.excessFunding === 'Yes' && activeLoanIds.has(a.loanId)).length;
+  const spurious = deduped.filter(a => a.spurious === 'Yes' && activeLoanIds.has(a.loanId)).length;
+  const clean = deduped.filter(a => a.excessFunding === 'No' && a.spurious === 'No').length;
 
-  const activeAudited = dedupedForStats.filter(a => activeLoanIds.has(a.loanId)).length;
+  const activeAudited = deduped.filter(a => activeLoanIds.has(a.loanId)).length;
   const cards = document.getElementById('summary-grid').querySelectorAll('.sc-value');
   cards[0].textContent = total;
   cards[1].textContent = excess;
@@ -1119,7 +1117,7 @@ function renderAllAudits(search = '') {
 
   // Read filter values
   const loanIdFilter = (document.getElementById('rf-loanid')?.value || '').toLowerCase();
-  const branchFilter = selectedBranch || document.getElementById('rf-branch')?.value || '';
+  const branchFilter = document.getElementById('rf-branch')?.value || '';
   const auditorFilter = document.getElementById('rf-auditor')?.value || '';
   const deviationFilter = document.getElementById('rf-deviation')?.value || '';
   const loanStatusFilter = document.getElementById('rf-loanstatus')?.value || '';
@@ -1253,65 +1251,6 @@ function generateReport() {
 // ────────────────────────────
 // AUTH — LOGIN / LOGOUT
 // ────────────────────────────
-// ────────────────────────────
-// BRANCH SELECTION MODAL
-// ────────────────────────────
-function showBranchSelectModal() {
-  // Collect branches from active loan data (activeLoanIds gives IDs, but we need branch names)
-  // Use auditStore branches + active loans branch data
-  const branchesFromAudits = [...new Set(auditStore.map(a => a.branch).filter(b => b && b !== '—'))].sort();
-
-  const modal = document.getElementById('branch-select-modal');
-  const optionsEl = document.getElementById('branch-select-options');
-
-  // Build branch buttons
-  const branches = branchesFromAudits.length ? branchesFromAudits : ['Hasbiguda'];
-
-  let buttonsHtml = branches.map(b => `
-    <button onclick="selectBranch('${b}')" style="
-      width:100%; padding:14px 18px; text-align:left;
-      background:var(--surface-2); border:1px solid var(--border);
-      border-radius:var(--r-sm); font-size:14px; font-weight:500;
-      color:var(--text-1); cursor:pointer;
-      display:flex; align-items:center; justify-content:space-between;">
-      <span>${b}</span>
-      <span style="font-size:12px; color:var(--text-3);">Select →</span>
-    </button>
-  `).join('');
-
-  // Managers get an "All branches" option too
-  if (currentUserRole === 'manager') {
-    buttonsHtml = `
-      <button onclick="selectBranch('')" style="
-        width:100%; padding:14px 18px; text-align:left;
-        background:var(--surface-2); border:2px solid var(--gold);
-        border-radius:var(--r-sm); font-size:14px; font-weight:500;
-        color:var(--gold); cursor:pointer;
-        display:flex; align-items:center; justify-content:space-between;">
-        <span>All branches</span>
-        <span style="font-size:12px;">View all →</span>
-      </button>
-    ` + buttonsHtml;
-  }
-
-  optionsEl.innerHTML = buttonsHtml;
-  modal.style.display = 'flex';
-}
-
-function selectBranch(branch) {
-  selectedBranch = branch;
-  document.getElementById('branch-select-modal').style.display = 'none';
-
-  // Update sidebar indicator
-  const indicator = document.getElementById('branch-indicator');
-  if (indicator) indicator.textContent = branch ? branch : 'All branches';
-
-  // Re-render everything with branch filter applied
-  renderAllAudits();
-  renderTWTable();
-  loadUnauditedLoans();
-}
-
 function handleLogin() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
@@ -1370,7 +1309,6 @@ function onLoginSuccess() {
   // Load app data
   initAuditDate();
   Promise.all([loadAudits(), loadActiveLoans(), loadSettings()]).then(() => {
-    showBranchSelectModal();
     if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
     loadUnauditedLoans();
   });
@@ -1402,7 +1340,6 @@ function handleGuestLogin() {
   // Load app data (read-only)
   initAuditDate();
   Promise.all([loadAudits(), loadActiveLoans(), loadSettings()]).then(() => {
-    showBranchSelectModal();
     if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
     loadUnauditedLoans();
   });
