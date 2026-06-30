@@ -275,44 +275,16 @@
         </div>
       </div>
 
-      <!-- Step 3: Audit data — ornament by ornament -->
+      <!-- Step 3: Audit data — all ornaments stacked -->
       <div class="card hidden" id="card-audit">
-        <!-- Ornament stepper header -->
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
-          <div>
-            <div class="card-eyebrow" style="margin-bottom:4px;">Audit data</div>
-            <div style="display:flex; align-items:center; gap:12px;">
-              <div id="ornament-step-label" style="font-size:15px; font-weight:600; color:var(--text-1);">Ornament 1</div>
-              <div style="display:flex; align-items:center; gap:6px;">
-                <label style="font-size:12px; color:var(--text-3); white-space:nowrap;">Count</label>
-                <input type="number" min="1" step="1" class="fi" id="aud-count" placeholder="—" style="width:64px; height:28px; font-size:13px; text-align:center;" />
-              </div>
-            </div>
-          </div>
-          <div id="ornament-step-dots" style="display:flex; gap:6px;"></div>
-        </div>
+        <div class="card-eyebrow" style="margin-bottom:16px;">Audit data</div>
 
-        <!-- Audit input fields for this ornament -->
-        <div class="form-grid-3" id="ornament-audit-fields">
-          <div class="fg"><label class="fl">GW as per audit (g)</label><input type="number" step="0.01" class="fi" id="aud-gw" placeholder="0.00" oninput="autoCalcNW()" /></div>
-          <div class="fg"><label class="fl">Stone deduction (g)</label><input type="number" step="0.01" class="fi" id="aud-stone" placeholder="0.00" oninput="autoCalcNW()" /></div>
-          <div class="fg"><label class="fl">Karat</label><input type="number" step="1" class="fi" id="aud-karat" placeholder="e.g. 22" oninput="autoCalcNW()" /></div>
-          <div class="fg">
-            <label class="fl">NW (g) <span style="font-size:10px; color:var(--gold); font-weight:500;">Auto-calculated</span></label>
-            <input type="number" step="0.01" class="fi" id="aud-nw" placeholder="0.00" readonly style="background:var(--surface-2); cursor:not-allowed; font-weight:600;" />
-          </div>
-          <div class="fg"><label class="fl">Hallmark</label>
-            <select class="fs" id="aud-hallmark"><option value="">Select</option><option>Yes</option><option>No</option></select>
-          </div>
-          <div class="fg"><label class="fl">Spurious</label>
-            <select class="fs" id="aud-spurious"><option value="No">No</option><option value="Yes">Yes</option></select>
-          </div>
-          <div class="fg"><label class="fl">New / old packet ID</label><input type="text" class="fi" id="aud-packet" placeholder="Leave blank if unchanged" /></div>
-        </div>
+        <!-- Ornament cards injected here by JS -->
+        <div id="ornament-cards-container"></div>
 
-        <!-- Next ornament / done button -->
-        <div style="display:flex; justify-content:flex-end; margin-top:16px;">
-          <button class="btn-dark" id="ornament-next-btn" onclick="nextOrnament()">Next ornament →</button>
+        <!-- Done button -->
+        <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+          <button class="btn-dark" id="ornament-done-btn" onclick="collectAndReview()">Done — review ✓</button>
         </div>
 
         <div class="divider"></div>
