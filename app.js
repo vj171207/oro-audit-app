@@ -73,6 +73,33 @@ function getLoanStatus(loanId) {
   return daysSince <= PENDING_DAYS ? 'audited' : 'pending';
 }
 
+
+// ────────────────────────────
+// DARK MODE
+// ────────────────────────────
+function initDarkMode() {
+  const saved = localStorage.getItem('oro-theme');
+  if (saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    const btn = document.getElementById('dark-toggle-btn');
+    if (btn) btn.textContent = '☀️';
+  }
+}
+
+function toggleDarkMode() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const btn = document.getElementById('dark-toggle-btn');
+  if (isDark) {
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('oro-theme', 'light');
+    if (btn) btn.textContent = '🌙';
+  } else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    localStorage.setItem('oro-theme', 'dark');
+    if (btn) btn.textContent = '☀️';
+  }
+}
+
 // ── Audit date ──
 // Password is now managed via SETTINGS_PASSWORD (loaded from Firestore)
 
@@ -1218,6 +1245,7 @@ function handleLogin() {
 }
 
 function onLoginSuccess() {
+  initDarkMode();
   // Update sidebar with user info
   const email = currentUser.email;
   const name = email.split('@')[0].replace(/\./g, ' ').replace(/\w/g, c => c.toUpperCase());
@@ -1243,6 +1271,7 @@ function onLoginSuccess() {
 
 
 function handleGuestLogin() {
+  initDarkMode();
   currentUser = null;
   currentUserRole = 'guest';
 
@@ -1575,6 +1604,7 @@ function closeModal(e) {
 }
 
 // ── INIT ──
+initDarkMode();
 showLoadingState('reports-tbody', 8, 'Loading audits from Firestore...');
 showLoadingState('tw-tbody', 8, 'Loading...');
 // App init is triggered by onLoginSuccess() after successful authentication
