@@ -193,3 +193,53 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .steps { display: none; }
 }
+
+
+/* ── Dark mode ── */
+[data-theme="dark"] {
+  --bg: #111110;
+  --surface: #1C1B19;
+  --surface-2: #242320;
+  --border: #2E2D2A;
+  --border-strong: #3D3C38;
+  --text-1: #F0EDE6;
+  --text-2: #9E9B94;
+  --text-3: #6A6860;
+  --gold-light: #2A2210;
+  --gold-border: #4A3A10;
+  --danger-bg: #2A1010;
+  --danger-border: #5A2020;
+  --success-bg: #0E2018;
+  --success-border: #1A4030;
+  --warning-bg: #221A08;
+  --warning-border: #4A3A10;
+}
+
+[data-theme="dark"] .sidebar { background: #0D0D0C; }
+[data-theme="dark"] .modal-header { background: var(--surface); }
+[data-theme="dark"] .data-table tr.flagged td { background: #2A1010; }
+[data-theme="dark"] .data-table tr.flagged:hover td { background: #341414; }
+[data-theme="dark"] .data-table tr.matched td { background: #0E2018; }
+[data-theme="dark"] .row-clickable:hover td { background: #2A2210 !important; }
+[data-theme="dark"] .login-screen { background: var(--bg); }
+
+/* ── Dark mode toggle button ── */
+.dark-toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  margin: 8px auto 0;
+  transition: background 0.12s, color 0.12s;
+}
+.dark-toggle:hover {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.8);
+}
