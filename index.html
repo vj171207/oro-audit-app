@@ -281,7 +281,13 @@
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
           <div>
             <div class="card-eyebrow" style="margin-bottom:4px;">Audit data</div>
-            <div id="ornament-step-label" style="font-size:15px; font-weight:600; color:var(--text-1);">Ornament 1</div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div id="ornament-step-label" style="font-size:15px; font-weight:600; color:var(--text-1);">Ornament 1</div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-3); white-space:nowrap;">Count</label>
+                <input type="number" min="1" step="1" class="fi" id="aud-count" placeholder="—" style="width:64px; height:28px; font-size:13px; text-align:center;" />
+              </div>
+            </div>
           </div>
           <div id="ornament-step-dots" style="display:flex; gap:6px;"></div>
         </div>
