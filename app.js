@@ -1069,13 +1069,22 @@ function hasWeightMismatch(audit) {
   });
 }
 
+function hasCountMismatch(audit) {
+  if (!audit.ornaments || !audit.ornaments.length) return false;
+  return audit.ornaments.some(o => {
+    if (o.countAudit === null || o.countAudit === undefined) return false;
+    return o.countAudit !== o.count;
+  });
+}
+
 function hasDeviation(audit, type) {
   switch (type) {
     case 'excess':  return audit.excessFunding === 'Yes';
     case 'spurious': return audit.spurious === 'Yes';
     case 'weight':  return hasWeightMismatch(audit);
-    case 'any':     return audit.excessFunding === 'Yes' || audit.spurious === 'Yes' || hasWeightMismatch(audit);
-    case 'none':    return audit.excessFunding !== 'Yes' && audit.spurious !== 'Yes' && !hasWeightMismatch(audit);
+    case 'count':   return hasCountMismatch(audit);
+    case 'any':     return audit.excessFunding === 'Yes' || audit.spurious === 'Yes' || hasWeightMismatch(audit) || hasCountMismatch(audit);
+    case 'none':    return audit.excessFunding !== 'Yes' && audit.spurious !== 'Yes' && !hasWeightMismatch(audit) && !hasCountMismatch(audit);
     default:        return true;
   }
 }
