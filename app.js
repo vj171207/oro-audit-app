@@ -83,6 +83,8 @@ function initAuditDate() {
 }
 
 function unlockAuditDate() {
+  if (currentUserRole === 'guest') return;
+
   document.getElementById('audit-date-modal').classList.remove('hidden');
   document.getElementById('audit-date-password').value = '';
   document.getElementById('audit-date-modal-error').textContent = '';
@@ -188,6 +190,8 @@ function closeSyncModal(e) {
 }
 
 function runSync() {
+  if (currentUserRole === 'guest') return;
+
   const password = document.getElementById('sync-password-input').value.trim();
   if (!password) {
     document.getElementById('sync-result').innerHTML = '<span style="color:var(--danger);">Please enter the sync password.</span>';
@@ -424,6 +428,7 @@ function browseLoans() {
 }
 
 function selectBrowsedLoan(loanId) {
+  if (currentUserRole === 'guest') return;
   // Switch to direct tab and populate loan ID, then fetch
   switchLookupTab('direct');
   document.getElementById('loan-id-input').value = loanId;
@@ -431,6 +436,7 @@ function selectBrowsedLoan(loanId) {
 }
 
 function handleFetch() {
+  if (currentUserRole === 'guest') return;
   const id = document.getElementById('loan-id-input').value.trim().toUpperCase();
   const hint = document.getElementById('lookup-hint');
   if (!id) {
@@ -720,6 +726,8 @@ function setStep(n) {
 // SUBMIT — SAVES TO FIRESTORE
 // ────────────────────────────
 function handleSubmit() {
+  if (currentUserRole === 'guest') return;
+
   const tw = parseFloat(document.getElementById('tw-input').value);
   if (!currentLoanId) { alert('No loan loaded.'); return; }
   if (isNaN(tw) || tw <= 0) { alert('Please enter a valid tear weight before submitting.'); return; }
@@ -769,6 +777,8 @@ function handleSubmit() {
 }
 
 function clearForm() {
+  if (currentUserRole === 'guest') return;
+
   currentLoanId = null;
   initAuditDate();
   document.getElementById('audit-date-field').setAttribute('readonly', true);
@@ -943,6 +953,8 @@ function onTWChange(loanId, input) {
 }
 
 function submitTW(loanId) {
+  if (currentUserRole === 'guest') return;
+
   const newTW = twCurrentValues[loanId];
   if (!newTW || isNaN(newTW) || newTW <= 0) {
     alert('Please enter a tare weight value before saving.');
@@ -1229,6 +1241,36 @@ function onLoginSuccess() {
   });
 }
 
+
+function handleGuestLogin() {
+  currentUser = null;
+  currentUserRole = 'guest';
+
+  // Update sidebar
+  document.getElementById('auditor-name-display').textContent = 'Guest';
+  document.getElementById('auditor-initials').textContent = 'G';
+  document.getElementById('auditor-role-display').textContent = 'View only';
+
+  // Hide settings nav
+  const settingsBtn = document.querySelector("[onclick=\"switchSection('settings', this)\"]");
+  if (settingsBtn) settingsBtn.style.display = 'none';
+
+  // Show guest banner, offset app shell
+  document.getElementById('guest-banner').style.display = 'block';
+  document.getElementById('app-shell').style.paddingTop = '30px';
+
+  // Hide login, show app
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = '';
+
+  // Load app data (read-only)
+  initAuditDate();
+  Promise.all([loadAudits(), loadActiveLoans(), loadSettings()]).then(() => {
+    if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
+    loadUnauditedLoans();
+  });
+}
+
 function handleSignOut() {
   auth.signOut().then(() => {
     currentUser = null;
@@ -1278,6 +1320,8 @@ async function loadUsersList() {
 }
 
 async function addUser() {
+  if (currentUserRole === 'guest') return;
+
   const email = document.getElementById('new-user-email').value.trim();
   const password = document.getElementById('new-user-password').value.trim();
   const role = document.getElementById('new-user-role').value;
@@ -1316,6 +1360,8 @@ async function addUser() {
 }
 
 async function removeUser(docId, email) {
+  if (currentUserRole === 'guest') return;
+
   if (!confirm(`Remove ${email}? They will lose app access.`)) return;
   try {
     await db.collection('users').doc(docId).delete();
@@ -1329,6 +1375,8 @@ async function removeUser(docId, email) {
 // SETTINGS
 // ────────────────────────────
 function unlockSettings() {
+  if (currentUserRole === 'guest') return;
+
   const pwd = document.getElementById('settings-password-input').value.trim();
   if (pwd !== SETTINGS_PASSWORD) {
     document.getElementById('settings-password-error').textContent = '❌ Incorrect password.';
@@ -1368,6 +1416,8 @@ function loadSettingsPanel() {
 }
 
 async function saveAuditSettings() {
+  if (currentUserRole === 'guest') return;
+
   const pendingDays = parseInt(document.getElementById('setting-pending-days').value);
   const twThreshold = parseFloat(document.getElementById('setting-tw-threshold').value);
   const statusEl = document.getElementById('audit-settings-status');
@@ -1389,6 +1439,8 @@ async function saveAuditSettings() {
 }
 
 async function changeMyPassword() {
+  if (currentUserRole === 'guest') return;
+
   const current = document.getElementById('setting-current-password').value.trim();
   const newPwd = document.getElementById('setting-new-password').value.trim();
   const statusEl = document.getElementById('password-change-status');
@@ -1415,6 +1467,8 @@ async function changeMyPassword() {
 }
 
 async function resetUserPassword(email) {
+  if (currentUserRole === 'guest') return;
+
   const newPwd = prompt(`Enter new password for ${email} (min 6 characters):`);
   if (!newPwd) return;
   if (newPwd.length < 6) { alert('Password must be at least 6 characters.'); return; }
