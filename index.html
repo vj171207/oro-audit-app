@@ -1,1 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Oro Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
 
+<!-- Login screen -->
+<div id="login-screen" style="position:fixed; inset:0; background:var(--surface-1); display:flex; align-items:center; justify-content:center; z-index:9999;">
+  <div style="width:100%; max-width:380px; padding:0 24px;">
+    <div style="text-align:center; margin-bottom:32px;">
+      <div style="font-size:28px; margin-bottom:8px;">⬡</div>
+      <div style="font-size:20px; font-weight:700; color:var(--text-1);">Oro Audit</div>
+      <div style="font-size:13px; color:var(--text-3); margin-top:4px;">Sign in to continue</div>
+    </div>
+    <div class="card" style="padding:24px;">
+      <div class="fg" style="margin-bottom:14px;">
+        <label class="fl">Email</label>
+        <input type="email" id="login-email" class="fi" placeholder="you@orocorp.in" style="margin-top:6px;" onkeydown="if(event.key==='Enter') document.getElementById('login-password').focus()" />
+      </div>
+      <div class="fg" style="margin-bottom:20px;">
+        <label class="fl">Password</label>
+        <input type="password" id="login-password" class="fi" placeholder="Password" style="margin-top:6px;" onkeydown="if(event.key==='Enter') handleLogin()" />
+      </div>
+      <div id="login-error" style="font-size:12px; color:var(--danger); margin-bottom:12px; min-height:16px;"></div>
+      <button class="btn-dark" onclick="handleLogin()" id="login-btn" style="width:100%; height:40px; font-size:14px;">Sign in</button>
+      <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
+        <div style="flex:1; height:1px; background:var(--border);"></div>
+        <span style="font-size:11px; color:var(--text-3);">or</span>
+        <div style="flex:1; height:1px; background:var(--border);"></div>
+      </div>
+      <button onclick="handleGuestLogin()" style="width:100%; height:38px; margin-top:14px; font-size:13px; font-family:inherit; background:none; border:1px solid var(--border); border-radius:var(--r-sm); cursor:pointer; color:var(--text-2);">Continue as guest →</button>
+    </div>
+  </div>
+</div>
+
+<div id="guest-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:1000; background:#1a1a2e; color:#a0a8c0; font-size:12px; font-weight:500; text-align:center; padding:6px; letter-spacing:0.03em;">
+  👁 View-only mode — no changes can be made
+</div>
+<div class="app-shell" id="app-shell" style="display:none;">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-mark">⬡</span>
+      <span class="brand-name">Oro Audit</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" onclick="switchSection('new-audit', this)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        New audit
+      </button>
+      <button class="nav-item" onclick="switchSection('tear-weight', this)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Tear weight
+      </button>
+      <button class="nav-item" onclick="switchSection('all-audits', this)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        All audits
+      </button>
+      <button class="nav-item" onclick="switchSection('settings', this)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="auditor-chip">
+        <div class="auditor-avatar" id="auditor-initials">—</div>
+        <div class="auditor-info">
+          <div class="auditor-name" id="auditor-name-display">Auditor</div>
+          <div class="auditor-role" id="auditor-role-display">Audit personnel</div>
+        </div>
+      </div>
+      <button class="dark-toggle" onclick="toggleDarkMode()" id="dark-toggle-btn" title="Toggle dark mode">🌙</button>
+      <button onclick="handleSignOut()" style="margin-top:8px; width:100%; height:30px; font-size:12px; font-family:inherit; background:none; border:1px solid var(--border); border-radius:var(--r-sm); cursor:pointer; color:var(--text-3);">Sign out</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main-content">
+
+    <!-- ── NEW AUDIT ── -->
+    <section id="new-audit" class="section active">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">New audit</h1>
+          <p class="page-subtitle">Enter a loan ID — ops data will populate automatically from the database.</p>
+        </div>
+        <button class="btn-ghost" onclick="triggerManualSync()" id="sync-btn" style="height:36px; font-size:13px; display:flex; align-items:center; gap:6px; flex-shrink:0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Sync new loans
+        </button>
+
+        <!-- Sync modal -->
+        <div class="modal-overlay hidden" id="sync-modal" onclick="closeSyncModal(event)">
+          <div class="modal-box" style="max-width:380px;">
+            <div class="modal-header">
+              <h2 class="modal-title" style="font-family:inherit;">Sync new loans</h2>
+              <button class="modal-close" onclick="closeSyncModal()">✕</button>
+            </div>
+            <div class="modal-body">
+              <p style="font-size:13px; color:var(--text-2); margin-bottom:16px;">This will query Metabase for any new loans added since the last sync and add them to the app.</p>
+              <div class="fg" style="margin-bottom:16px;">
+                <label class="fl">Enter sync password</label>
+                <input type="password" id="sync-password-input" class="fi" placeholder="Enter password" style="margin-top:6px;" onkeydown="if(event.key===&apos;Enter&apos;) runSync()" />
+              </div>
+              <div id="sync-result" style="font-size:13px; margin-bottom:12px;"></div>
+              <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button class="btn-ghost" onclick="closeSyncModal()" style="height:36px;">Cancel</button>
+                <button class="btn-dark" onclick="runSync()" id="sync-run-btn" style="height:36px;">Run sync</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step active" id="step-1"><span class="step-dot">1</span> Loan lookup</div>
+          <span class="step-sep">›</span>
+          <div class="step" id="step-2"><span class="step-dot">2</span> Audit data</div>
+          <span class="step-sep">›</span>
+          <div class="step" id="step-3"><span class="step-dot">3</span> Tear weight</div>
+          <span class="step-sep">›</span>
+          <div class="step" id="step-4"><span class="step-dot">4</span> Submit</div>
+        </div>
+      </div>
+
+      <!-- Audit date bar -->
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; padding:10px 16px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm);">
+        <span style="font-size:12px; color:var(--text-3); font-weight:500; white-space:nowrap;">Audit date</span>
+        <input type="date" id="audit-date-field" class="fi" style="height:32px; font-size:13px; width:150px;" readonly />
+        <button onclick="unlockAuditDate()" id="audit-date-lock-btn" style="display:flex; align-items:center; gap:5px; height:32px; padding:0 10px; font-size:12px; font-family:inherit; background:none; border:1px solid var(--border); border-radius:var(--r-sm); cursor:pointer; color:var(--text-3);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Edit
+        </button>
+        <span style="font-size:11px; color:var(--text-3);" id="audit-date-hint">Locked — click Edit to change</span>
+      </div>
+
+      <!-- Audit date password modal -->
+      <div class="modal-overlay hidden" id="audit-date-modal" onclick="closeAuditDateModal(event)">
+        <div class="modal-box" style="max-width:360px;">
+          <div class="modal-header">
+            <h2 class="modal-title" style="font-family:inherit;">Change audit date</h2>
+            <button class="modal-close" onclick="closeAuditDateModal()">✕</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size:13px; color:var(--text-2); margin-bottom:16px;">Enter the sync password to unlock the audit date field.</p>
+            <div class="fg" style="margin-bottom:16px;">
+              <label class="fl">Password</label>
+              <input type="password" id="audit-date-password" class="fi" placeholder="Enter password" style="margin-top:6px;" onkeydown="if(event.key==='Enter') confirmAuditDateUnlock()" />
+            </div>
+            <div id="audit-date-modal-error" style="font-size:12px; color:var(--danger); margin-bottom:8px;"></div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+              <button class="btn-ghost" onclick="closeAuditDateModal()" style="height:36px;">Cancel</button>
+              <button class="btn-dark" onclick="confirmAuditDateUnlock()" style="height:36px;">Unlock</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 1: Loan lookup -->
+      <div class="card" id="card-lookup">
+
+        <!-- Tab switcher -->
+        <div style="display:flex; gap:4px; margin-bottom:18px; border-bottom:1px solid var(--border); padding-bottom:0;">
+          <button id="tab-browse" onclick="switchLookupTab('browse')" style="padding:8px 16px; font-size:13px; font-weight:500; font-family:inherit; background:none; border:none; border-bottom:2px solid var(--gold); color:var(--gold); cursor:pointer;">Browse by date</button>
+          <button id="tab-direct" onclick="switchLookupTab('direct')" style="padding:8px 16px; font-size:13px; font-weight:500; font-family:inherit; background:none; border:none; border-bottom:2px solid transparent; color:var(--text-3); cursor:pointer;">Enter loan ID</button>
+        </div>
+
+        <!-- Unaudited loans — shown automatically -->
+        <div id="lookup-browse">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <div>
+              <div style="font-size:13px; font-weight:600; color:var(--text-1);">New loans — never audited</div>
+              <div style="font-size:12px; color:var(--text-3); margin-top:2px;">These loans are in the system but have not been audited yet. Click any to begin.</div>
+            </div>
+            <button class="btn-ghost" onclick="loadUnauditedLoans()" style="height:32px; font-size:12px; flex-shrink:0;">↻ Refresh</button>
+          </div>
+
+          <div id="unaudited-loading" style="font-size:13px; color:var(--text-3); padding:12px 0;">Loading unaudited loans...</div>
+
+          <div id="unaudited-results" style="display:none;">
+            <div style="font-size:12px; color:var(--text-3); margin-bottom:8px;" id="unaudited-count"></div>
+            <div class="table-wrap" style="max-height:320px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r-sm);">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Loan ID</th>
+                    <th>Branch</th>
+                    <th>City</th>
+                    <th>Loan date</th>
+                    <th>Amount</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="unaudited-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
+            <div style="font-size:12px; color:var(--text-3); margin-bottom:8px;">Filter by date range instead:</div>
+            <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+              <div class="fg" style="min-width:130px;">
+                <label class="fl">From date</label>
+                <input type="date" id="browse-from" class="fi" style="margin-top:5px; height:36px;" />
+              </div>
+              <div class="fg" style="min-width:130px;">
+                <label class="fl">To date</label>
+                <input type="date" id="browse-to" class="fi" style="margin-top:5px; height:36px;" />
+              </div>
+              <button class="btn-ghost" onclick="browseLoans()" style="height:36px; white-space:nowrap; font-size:13px;">Filter →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Direct loan ID entry -->
+        <div id="lookup-direct" style="display:none;">
+          <div class="card-eyebrow" style="margin-bottom:10px;">Loan ID</div>
+          <div class="lookup-row">
+            <input id="loan-id-input" class="loan-id-input" type="text" placeholder="e.g. TCGL30663553" autocomplete="off" />
+            <button class="btn-gold" onclick="handleFetch()">
+              Fetch ops data
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </div>
+          <p class="field-hint" id="lookup-hint">Press Enter or click Fetch to load ops data for this loan.</p>
+        </div>
+
+      </div>
+
+      <!-- Step 2: Ops data (shown after fetch) -->
+      <div class="card card-ops hidden" id="card-ops">
+        <div class="card-header-row">
+          <div class="card-eyebrow">Ops data <span class="auto-tag">Auto-populated</span></div>
+          <span class="mono-tag" id="ops-loan-id">—</span>
+        </div>
+
+        <!-- Fields populated by API -->
+        <div class="ops-grid">
+          <div class="ops-field"><div class="ops-fl">Date of audit</div><div class="ops-fv" id="f-date">—</div></div>
+          <div class="ops-field"><div class="ops-fl">City</div><div class="ops-fv" id="f-city">—</div></div>
+          <div class="ops-field"><div class="ops-fl">Branch name</div><div class="ops-fv" id="f-branch">—</div></div>
+          <div class="ops-field"><div class="ops-fl">Agent name</div><div class="ops-fv" id="f-agent">—</div></div>
+          <div class="ops-field"><div class="ops-fl">Maker name</div><div class="ops-fv" id="f-maker">—</div></div>
+          <div class="ops-field"><div class="ops-fl">Packet ID</div><div class="ops-fv" id="f-packet">—</div></div>
+          <div class="ops-field"><div class="ops-fl">Loan amount</div><div class="ops-fv" id="f-amount">—</div></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Ornament table -->
+        <div class="card-eyebrow" style="margin-bottom:10px">Ornaments on this loan</div>
+        <div class="table-wrap">
+          <table class="data-table" id="ornament-table">
+            <thead>
+              <tr>
+                <th>Ornament type</th>
+                <th>Count</th>
+                <th>GW as per PC (g)</th>
+                <th>Stone deduction (g)</th>
+                <th>Karat</th>
+                <th>NW as per PC (g)</th>
+                <th>Hallmark</th>
+              </tr>
+            </thead>
+            <tbody id="ornament-tbody">
+              <tr class="empty-row"><td colspan="7">Ornaments will appear here after ops data is loaded.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Step 3: Audit data — all ornaments stacked -->
+      <div class="card hidden" id="card-audit">
+        <div class="card-eyebrow" style="margin-bottom:16px;">Audit data</div>
+
+        <!-- Ornament cards injected here by JS -->
+        <div id="ornament-cards-container"></div>
+
+        <!-- Done button -->
+        <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+          <button class="btn-dark" id="ornament-done-btn" onclick="collectAndReview()">Done — review ✓</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Loan level fields -->
+        <div class="card-eyebrow-sub" style="margin-bottom:12px;">Loan level</div>
+        <div class="form-grid-3">
+          <div class="fg">
+            <label class="fl">Excess funding</label>
+            <select class="fs" id="excess-select" onchange="toggleExcessAmount()">
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+              <option value="CC">CC</option>
+            </select>
+          </div>
+          <div class="fg" id="excess-amount-group" style="display:none">
+            <label class="fl">Excess funding amount (₹)</label>
+            <input type="number" class="fi" id="excess-amount-input" placeholder="e.g. 13561" />
+          </div>
+
+        </div>
+        <div class="form-grid-1" style="margin-top:12px">
+          <div class="fg">
+            <label class="fl">Remarks</label>
+            <textarea class="fta" id="audit-remarks" placeholder="Describe physical observations — e.g. Boot less, two stones missing, hookless, bend..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audit preview card (shown after all ornaments filled) -->
+      <div class="card hidden" id="card-audit-preview">
+        <div class="card-eyebrow" style="margin-bottom:16px;">Audit summary — review before submitting</div>
+        <div id="audit-preview-content"></div>
+      </div>
+
+      <!-- Step 4: Tear weight -->
+      <div class="card hidden" id="card-tw">
+        <div class="card-eyebrow" style="margin-bottom:16px">Tear weight</div>
+        <div class="form-grid-2">
+          <div class="fg">
+            <label class="fl">Tear weight (g)</label>
+            <input type="number" step="0.01" id="tw-input" class="fi" placeholder="e.g. 9.00" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="submit-row hidden" id="submit-row">
+        <button class="btn-ghost" onclick="clearForm()">Clear form</button>
+        <button class="btn-dark" onclick="handleSubmit()">
+          Submit audit
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>
+
+      <div class="success-bar hidden" id="success-bar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Audit submitted.
+        <button class="link-btn" onclick="clearForm()">Start next audit →</button>
+      </div>
+    </section>
+
+    <!-- ── TEAR WEIGHT ── -->
+    <section id="tear-weight" class="section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Tear weight</h1>
+          <p class="page-subtitle">All audited loans are listed below. Enter current tear weight readings to check for discrepancies.</p>
+        </div>
+        <div class="stat-row" id="tw-stat-row">
+          <div class="stat-chip">— loans</div>
+          <div class="stat-chip success">— matched</div>
+          <div class="stat-chip danger">— flagged</div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0; overflow:hidden;">
+        <div class="toolbar" style="flex-wrap:wrap; gap:8px;">
+          <input type="text" class="search-input" id="tw-search-input" placeholder="Search by loan ID..." oninput="applyTWFilters(true)" style="min-width:160px;" />
+          <select class="fs" id="tw-branch-filter" onchange="applyTWFilters(true)" style="height:34px; font-size:13px; min-width:160px;">
+            <option value="">All branches</option>
+          </select>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:12px; color:var(--text-3); white-space:nowrap;">From</span>
+            <input type="date" id="tw-date-from" class="fi" onchange="applyTWFilters(true)" style="height:34px; font-size:12px; width:130px;" />
+          </div>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:12px; color:var(--text-3); white-space:nowrap;">To</span>
+            <input type="date" id="tw-date-to" class="fi" onchange="applyTWFilters(true)" style="height:34px; font-size:12px; width:130px;" />
+          </div>
+          <button class="btn-ghost" onclick="clearTWFilters()" style="height:34px; font-size:12px; padding:0 10px; white-space:nowrap;">Clear filters</button>
+          <div class="filter-group">
+            <button class="fbtn active" onclick="setTWFilter('all', this)">All</button>
+            <button class="fbtn" onclick="setTWFilter('pending', this)">Pending</button>
+            <button class="fbtn" onclick="setTWFilter('matched', this)">Matched</button>
+            <button class="fbtn" onclick="setTWFilter('flagged', this)">Flagged</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="tw-table">
+            <thead>
+              <tr>
+                <th>Loan ID</th>
+                <th>Branch</th>
+                <th>Audit date</th>
+                <th>Auditor</th>
+                <th>Stored TW (g)</th>
+                <th>Current TW (g)</th>
+                <th>Difference</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="tw-tbody">
+              <tr class="empty-row"><td colspan="9">No audits submitted yet. Complete a new audit to see loans here.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="tw-pagination" style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-top:1px solid var(--border); font-size:13px; color:var(--text-2);"></div>
+      </div>
+    </section>
+
+    <!-- ── ALL AUDITS ── -->
+    <section id="all-audits" class="section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">All audits</h1>
+          <p class="page-subtitle">Complete history of submitted audits. Click any row to view the full report.</p>
+        </div>
+      </div>
+
+      <div class="summary-grid" id="summary-grid">
+        <div class="summary-card"><div class="sc-label">Total audits</div><div class="sc-value gold">0</div></div>
+        <div class="summary-card"><div class="sc-label">Excess funding cases (active)</div><div class="sc-value danger">0</div></div>
+        <div class="summary-card"><div class="sc-label">Spurious cases (active)</div><div class="sc-value danger">0</div></div>
+        <div class="summary-card"><div class="sc-label">Clean audits</div><div class="sc-value success">0</div></div>
+        <div class="summary-card"><div class="sc-label">Active audited loans</div><div class="sc-value gold">0</div></div>
+      </div>
+
+      <!-- Filter panel -->
+      <div class="card" style="margin-top:16px; padding:16px 20px;">
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:12px;">
+          <div class="fg">
+            <label class="fl">Loan ID</label>
+            <input type="text" class="fi" id="rf-loanid" placeholder="e.g. TCGL30663553" style="height:34px; font-size:13px;" />
+          </div>
+          <div class="fg">
+            <label class="fl">Branch</label>
+            <select class="fs" id="rf-branch" style="height:34px; font-size:13px;">
+              <option value="">All branches</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Auditor</label>
+            <select class="fs" id="rf-auditor" style="height:34px; font-size:13px;">
+              <option value="">All auditors</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Deviation</label>
+            <select class="fs" id="rf-deviation" style="height:34px; font-size:13px;">
+              <option value="">All</option>
+              <option value="any">Any deviation</option>
+              <option value="excess">Excess funding</option>
+              <option value="spurious">Spurious</option>
+              <option value="weight">Weight mismatch</option>
+              <option value="none">No deviation</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; align-items:flex-end;">
+          <div class="fg">
+            <label class="fl">Loan status</label>
+            <select class="fs" id="rf-loanstatus" style="height:34px; font-size:13px;">
+              <option value="">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">From date</label>
+            <input type="date" class="fi" id="rf-date-from" style="height:34px; font-size:13px;" />
+          </div>
+          <div class="fg">
+            <label class="fl">To date</label>
+            <input type="date" class="fi" id="rf-date-to" style="height:34px; font-size:13px;" />
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-dark" onclick="applyReportFilters()" style="height:34px; font-size:13px; flex:1;">Search now</button>
+            <button class="btn-ghost" onclick="clearReportFilters()" style="height:34px; font-size:12px;">Clear all</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0; overflow:hidden; margin-top:12px;">
+        <div style="padding:10px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+          <span id="rf-result-count" style="font-size:12px; color:var(--text-3);"></span>
+          <button class="btn-ghost" onclick="generateReport()" style="height:30px; font-size:12px; padding:0 12px; display:flex; align-items:center; gap:6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
+        </div>
+        <div>
+        <div class="table-wrap">
+          <table class="data-table" id="reports-table">
+            <thead>
+              <tr>
+                <th>Loan ID</th>
+                <th>Branch</th>
+                <th>Date</th>
+                <th>Auditor</th>
+                <th>Loan amount</th>
+                <th>Excess funding</th>
+                <th>Spurious</th>
+                <th>TW (g)</th>
+                <th>Loan status</th>
+              </tr>
+            </thead>
+            <tbody id="reports-tbody">
+              <tr class="empty-row"><td colspan="9">No audits submitted yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ── SETTINGS ── -->
+    <section id="settings" class="section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Settings</h1>
+          <p class="page-subtitle">Configure app behaviour. Changes are saved to Firestore and apply to all users.</p>
+        </div>
+      </div>
+
+      <!-- Password gate -->
+      <div id="settings-locked" class="card" style="max-width:420px;">
+        <div style="font-size:15px; font-weight:600; margin-bottom:6px;">Settings are password protected</div>
+        <p style="font-size:13px; color:var(--text-2); margin-bottom:16px;">Enter the sync password to access settings.</p>
+        <div class="fg" style="margin-bottom:12px;">
+          <label class="fl">Password</label>
+          <input type="password" id="settings-password-input" class="fi" placeholder="Enter password" style="margin-top:6px;" onkeydown="if(event.key==='Enter') unlockSettings()" />
+        </div>
+        <div id="settings-password-error" style="font-size:12px; color:var(--danger); margin-bottom:8px;"></div>
+        <button class="btn-dark" onclick="unlockSettings()" style="height:36px;">Unlock settings</button>
+      </div>
+
+      <!-- Settings content -->
+      <div id="settings-content" style="display:none;">
+
+        <!-- Audit behaviour -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-size:13px; font-weight:600; color:var(--text-1); margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--border);">Audit behaviour</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div class="fg">
+              <label class="fl">Pending cycle (days)</label>
+              <div style="font-size:11px; color:var(--text-3); margin-bottom:6px;">Loans older than this are marked pending and require re-audit.</div>
+              <input type="number" class="fi" id="setting-pending-days" placeholder="30" style="height:36px; width:120px;" min="1" max="365" />
+            </div>
+            <div class="fg">
+              <label class="fl">Tare weight mismatch threshold (g)</label>
+              <div style="font-size:11px; color:var(--text-3); margin-bottom:6px;">Differences above this are flagged as a mismatch.</div>
+              <input type="number" class="fi" id="setting-tw-threshold" placeholder="0.3" style="height:36px; width:120px;" step="0.1" min="0.1" />
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            <button class="btn-dark" onclick="saveAuditSettings()" style="height:36px; font-size:13px;">Save</button>
+            <span id="audit-settings-status" style="font-size:12px; margin-left:12px;"></span>
+          </div>
+        </div>
+
+        <!-- Change my login password -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-size:13px; font-weight:600; color:var(--text-1); margin-bottom:4px; padding-bottom:10px; border-bottom:1px solid var(--border);">Change my login password</div>
+          <div style="font-size:11px; color:var(--text-3); margin-bottom:16px;">This changes your login password for the Oro Audit app.</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div class="fg">
+              <label class="fl">Current password</label>
+              <input type="password" class="fi" id="setting-current-password" placeholder="Current password" style="height:36px; margin-top:6px;" />
+            </div>
+            <div class="fg">
+              <label class="fl">New password</label>
+              <input type="password" class="fi" id="setting-new-password" placeholder="New password (min 6 chars)" style="height:36px; margin-top:6px;" />
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            <button class="btn-dark" onclick="changeMyPassword()" style="height:36px; font-size:13px;">Change password</button>
+            <span id="password-change-status" style="font-size:12px; margin-left:12px;"></span>
+          </div>
+        </div>
+
+        <!-- User management -->
+        <div class="card" style="margin-bottom:16px;" id="user-mgmt-card">
+          <div style="font-size:13px; font-weight:600; color:var(--text-1); margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--border);">User management</div>
+          <div id="users-list" style="margin-bottom:16px;"></div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:flex-end;">
+            <div class="fg">
+              <label class="fl">Email</label>
+              <input type="email" class="fi" id="new-user-email" placeholder="user@orocorp.in" style="height:36px; margin-top:6px;" />
+            </div>
+            <div class="fg">
+              <label class="fl">Password</label>
+              <input type="password" class="fi" id="new-user-password" placeholder="Min 6 characters" style="height:36px; margin-top:6px;" />
+            </div>
+            <div class="fg">
+              <label class="fl">Role</label>
+              <select class="fs" id="new-user-role" style="height:36px; margin-top:6px;">
+                <option value="auditor">Auditor</option>
+                <option value="manager">Manager</option>
+              </select>
+            </div>
+            <button class="btn-dark" onclick="addUser()" style="height:36px; font-size:13px; white-space:nowrap;">Add user</button>
+          </div>
+          <div id="user-mgmt-status" style="font-size:12px; margin-top:8px;"></div>
+        </div>
+
+        <!-- App info -->
+        <div class="card">
+          <div style="font-size:13px; font-weight:600; color:var(--text-1); margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--border);">App info</div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+            <div><div class="mfl">Unique audited loans</div><div class="mfv" id="info-total-records">—</div></div>
+            <div><div class="mfl">Active loans (Metabase)</div><div class="mfv" id="info-active-loans">—</div></div>
+            <div><div class="mfl">Last sync</div><div class="mfv" id="info-last-sync">—</div></div>
+            <div><div class="mfl">Pending cycle</div><div class="mfv" id="info-pending-days">—</div></div>
+            <div><div class="mfl">TW threshold</div><div class="mfv" id="info-tw-threshold">—</div></div>
+            <div><div class="mfl">App version</div><div class="mfv">1.0.0</div></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Audit detail modal -->
+<div class="modal-overlay hidden" id="audit-modal" onclick="closeModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-loan-id">—</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
