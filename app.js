@@ -591,7 +591,7 @@ function renderOrnamentStep() {
 
   // Update label
   document.getElementById('ornament-step-label').textContent =
-    `Ornament ${idx + 1} of ${total} — ${o.type}`;
+    o.type;
 
   // Update dots
   document.getElementById('ornament-step-dots').innerHTML = currentOrnaments.map((_, i) =>
@@ -599,7 +599,7 @@ function renderOrnamentStep() {
   ).join('');
 
   // Clear fields
-  ['aud-gw','aud-stone','aud-karat','aud-packet'].forEach(id => {
+  ['aud-gw','aud-stone','aud-karat','aud-packet','aud-count'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -629,6 +629,7 @@ function nextOrnament() {
     karatAudit: document.getElementById('aud-karat').value,
     nwAudit: document.getElementById('aud-nw').value,
     hallmark: document.getElementById('aud-hallmark').value,
+    countAudit: parseInt(document.getElementById('aud-count')?.value) || null,
     spurious: document.getElementById('aud-spurious')?.value || 'No',
     newPacketId: document.getElementById('aud-packet').value,
   });
