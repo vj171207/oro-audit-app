@@ -465,23 +465,18 @@
             </select>
           </div>
           <div class="fg">
-            <label class="fl">Excess funding</label>
-            <select class="fs" id="rf-excess" style="height:34px; font-size:13px;">
+            <label class="fl">Deviation</label>
+            <select class="fs" id="rf-deviation" style="height:34px; font-size:13px;">
               <option value="">All</option>
-              <option value="Yes">Yes — flagged</option>
-              <option value="No">No — clean</option>
+              <option value="any">Any deviation</option>
+              <option value="excess">Excess funding</option>
+              <option value="spurious">Spurious</option>
+              <option value="weight">Weight mismatch</option>
+              <option value="none">No deviation</option>
             </select>
           </div>
         </div>
-        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:12px; align-items:flex-end;">
-          <div class="fg">
-            <label class="fl">Spurious</label>
-            <select class="fs" id="rf-spurious" style="height:34px; font-size:13px;">
-              <option value="">All</option>
-              <option value="Yes">Yes — flagged</option>
-              <option value="No">No — clean</option>
-            </select>
-          </div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; align-items:flex-end;">
           <div class="fg">
             <label class="fl">Loan status</label>
             <select class="fs" id="rf-loanstatus" style="height:34px; font-size:13px;">
