@@ -227,6 +227,7 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color
 [data-theme="dark"] .btn-ghost { background: var(--surface-2); color: var(--text-2); border-color: var(--border); }
 [data-theme="dark"] .btn-ghost:hover { background: #2E2D2A; }
 [data-theme="dark"] .btn-gold { background: var(--gold); color: #111110; }
+[data-theme="dark"] .fbtn.active { background: #E8E4DA; border-color: #E8E4DA; color: #111110; }
 
 /* ── Dark mode toggle button ── */
 .dark-toggle {
