@@ -20,6 +20,42 @@ async function getFirebaseToken() {
   return data.idToken;
 }
 
+// Verifies that callerToken is a genuine, currently-valid Firebase session
+// belonging to a user whose Firestore role is 'manager'. This is the check
+// that was previously missing — callerToken was accepted but never used.
+async function verifyCallerIsManager(callerToken, adminToken) {
+  if (!callerToken) {
+    return { ok: false, error: 'Missing authentication. Please log in again.' };
+  }
+
+  const apiKey = process.env.FIREBASE_API_KEY;
+  const lookupRes = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: callerToken })
+    }
+  );
+  const lookupData = await lookupRes.json();
+  const callerUid = lookupData.users?.[0]?.localId;
+  if (lookupData.error || !callerUid) {
+    return { ok: false, error: 'Invalid or expired session. Please log in again.' };
+  }
+
+  const roleRes = await fetch(
+    `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${callerUid}`,
+    { headers: { Authorization: `Bearer ${adminToken}` } }
+  );
+  const roleData = await roleRes.json();
+  const callerRole = roleData.fields?.role?.stringValue;
+
+  if (callerRole !== 'manager') {
+    return { ok: false, error: 'Only managers can create new users.' };
+  }
+  return { ok: true, uid: callerUid };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -36,6 +72,15 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Admin token is needed both for the manager-role check below and for
+    // writing the new user's Firestore record later — fetch it once, up front.
+    const token = await getFirebaseToken();
+
+    const verification = await verifyCallerIsManager(callerToken, token);
+    if (!verification.ok) {
+      return res.status(403).json({ error: verification.error });
+    }
+
     // Use Firebase Auth REST API to create user
     const apiKey = process.env.FIREBASE_API_KEY;
 
@@ -59,7 +104,6 @@ export default async function handler(req, res) {
     const uid = createData.localId;
 
     // Write user record to Firestore
-    const token = await getFirebaseToken();
     const firestoreRes = await fetch(
       `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}`,
       {
