@@ -268,3 +268,8 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color
   background: rgba(255,255,255,0.08);
   color: rgba(255,255,255,0.8);
 }
+
+/* ── Login logo — swap between light/dark variants based on theme ── */
+.login-logo-dark { display: none; }
+[data-theme="dark"] .login-logo-light { display: none; }
+[data-theme="dark"] .login-logo-dark { display: inline-block; }
