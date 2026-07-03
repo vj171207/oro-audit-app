@@ -1603,10 +1603,11 @@ async function addUser() {
   statusEl.style.color = 'var(--text-3)';
 
   try {
+    const callerToken = await auth.currentUser.getIdToken();
     const res = await fetch('/api/create-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, role })
+      body: JSON.stringify({ email, password, role, callerToken })
     });
     const data = await res.json();
 
@@ -1812,10 +1813,11 @@ async function resetUserPassword(email) {
   if (!newPwd) return;
   if (newPwd.length < 6) { alert('Password must be at least 6 characters.'); return; }
   try {
+    const callerToken = await auth.currentUser.getIdToken();
     const res = await fetch('/api/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, newPassword: newPwd })
+      body: JSON.stringify({ email, newPassword: newPwd, callerToken })
     });
     const data = await res.json();
     if (data.error) {
