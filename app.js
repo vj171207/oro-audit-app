@@ -1146,6 +1146,7 @@ function renderTWTable(search = '', filter = twFilter) {
   }
 
   // Pagination
+  window._lastFilteredTW = filtered;
   const totalPages = Math.ceil(filtered.length / TW_PAGE_SIZE);
   if (twCurrentPage >= totalPages) twCurrentPage = 0;
   const pageStart = twCurrentPage * TW_PAGE_SIZE;
@@ -1163,6 +1164,9 @@ function renderTWTable(search = '', filter = twFilter) {
     let badge = '';
     if (isFlagged) badge = '<span style="color:var(--danger); font-weight:500;">⚠ Mismatch</span>';
     else if (isMatched) badge = '<span style="color:var(--success); font-weight:500;">✓ Match</span>';
+    if ((isFlagged || isMatched) && a.twRecheckedBy) {
+      badge += `<div style="font-size:11px; color:var(--text-3); margin-top:2px;">by ${a.twRecheckedBy}</div>`;
+    }
 
     const isSubmitted = a._twSubmitted === true;
 
@@ -1280,11 +1284,15 @@ function submitTW(loanId) {
   if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
 
   const updatedAt = new Date().toISOString();
+  const recheckedBy = currentUser
+    ? currentUser.email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    : (document.getElementById('auditor-name-display')?.textContent || 'Auditor');
   db.collection('audits').doc(audit.id)
-    .update({ tw: newTW, twUpdatedAt: updatedAt })
+    .update({ tw: newTW, twUpdatedAt: updatedAt, twRecheckedBy: recheckedBy })
     .then(() => {
       audit.tw = newTW;
       audit.twUpdatedAt = updatedAt;
+      audit.twRecheckedBy = recheckedBy;
       audit._twSubmitted = true;
       delete twCurrentValues[loanId];
       applyTWFilters();
@@ -1480,6 +1488,61 @@ function populateReportFilters() {
   const auditorSel = document.getElementById('rf-auditor');
   if (branchSel) branchSel.innerHTML = '<option value="">All branches</option>' + branches.map(b => '<option value="' + b + '">' + b + '</option>').join('');
   if (auditorSel) auditorSel.innerHTML = '<option value="">All auditors</option>' + auditors.map(a => '<option value="' + a + '">' + a + '</option>').join('');
+}
+
+function generateTWReport() {
+  const data = window._lastFilteredTW || [];
+  if (!data.length) { alert('No tare weight records to export.'); return; }
+
+  function val(v) { return (v == null || v === 'null') ? '' : String(v); }
+
+  const headers = ['Loan ID', 'Branch', 'Audit Date', 'Loan Booking Date', 'Original Auditor', 'Stored TW (g)', 'Current TW (g)', 'Difference (g)', 'Status', 'Rechecked By', 'Rechecked At'];
+
+  const rows = data.map(a => {
+    const cv = twCurrentValues[a.loanId];
+    const hasCv = cv !== undefined;
+    const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > TW_THRESHOLD;
+    const isMatched = hasCv && !isFlagged;
+    const diff = hasCv && a.tw != null ? (cv - a.tw).toFixed(2) : '';
+    const loanStatus = getLoanStatus(a.loanId);
+    let status = '';
+    if (loanStatus === 'pending') status = 'Pending';
+    else if (isFlagged) status = 'Mismatch';
+    else if (isMatched) status = 'Match';
+    else if (a.twRecheckedBy) status = 'Rechecked';
+    else status = 'Not yet rechecked';
+
+    const rechecked = a.twUpdatedAt
+      ? (a.twUpdatedAt.toDate ? a.twUpdatedAt.toDate().toLocaleString('en-GB') : new Date(a.twUpdatedAt).toLocaleString('en-GB'))
+      : '';
+
+    return [
+      val(a.loanId),
+      val(a.branch),
+      formatDate(a.date),
+      a.loanBookingDate ? formatDate(a.loanBookingDate) : '',
+      val(a.auditor),
+      a.tw != null ? Number(a.tw).toFixed(2) : '',
+      hasCv ? Number(cv).toFixed(2) : '',
+      diff,
+      status,
+      val(a.twRecheckedBy),
+      rechecked
+    ];
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  ws['!cols'] = [
+    { wch: 18 }, { wch: 22 }, { wch: 12 }, { wch: 16 },
+    { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+    { wch: 16 }, { wch: 18 }, { wch: 20 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Tare Weight Report');
+  const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+  XLSX.writeFile(wb, 'Oro_TareWeight_Report_' + today + '.xlsx');
 }
 
 // ────────────────────────────
