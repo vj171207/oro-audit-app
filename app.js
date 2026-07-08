@@ -1140,7 +1140,7 @@ function renderTWTable(search = '', filter = twFilter) {
 
   const tbody = document.getElementById('tw-tbody');
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:40px 20px; color:var(--text-3); font-size:13px;">${loans.length === 0 ? '📋 No tare weight records yet — audits with tare weight will appear here.' : '🔍 No loans match the current filter. Try adjusting the branch or status filter.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:40px 20px; color:var(--text-3); font-size:13px;">${loans.length === 0 ? '📋 No tare weight records yet — audits with tare weight will appear here.' : '🔍 No loans match the current filter. Try adjusting the branch or status filter.'}</td></tr>`;
     renderTWPagination(0, 0);
     return;
   }
@@ -1200,6 +1200,9 @@ function renderTWTable(search = '', filter = twFilter) {
             : `<button class="btn-ghost" style="height:28px; font-size:12px; padding:0 10px;"
                 onclick="submitTW('${a.loanId}')">Save</button>`
           }
+        </td>
+        <td style="border-left:2px solid var(--border-2); background:rgba(255,255,255,0.02); padding-left:16px; color:var(--text-2);">
+          ${a.twUpdatedAt ? formatDate(a.twUpdatedAt.slice(0, 10)) : '—'}
         </td>
       </tr>`;
   }).join('');
