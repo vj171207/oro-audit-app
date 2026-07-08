@@ -1536,22 +1536,9 @@ async function generateTWReport() {
     return;
   }
 
-  const headers = ['Loan ID', 'Branch', 'Audit Date', 'Loan Booking Date', 'Original Auditor', 'Gross Weight (g)', 'Stored TW (g)', 'Current TW (g)', 'Difference (g)', 'Status', 'Rechecked By', 'Rechecked At'];
+  const headers = ['Loan ID', 'Branch', 'Audit Date', 'Loan Booking Date', 'Original Auditor', 'Gross Weight (g)', 'Stored TW (g)', 'Rechecked By', 'Rechecked At'];
 
   const rows = data.map(a => {
-    const cv = twCurrentValues[a.loanId];
-    const hasCv = cv !== undefined;
-    const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > TW_THRESHOLD;
-    const isMatched = hasCv && !isFlagged;
-    const diff = hasCv && a.tw != null ? (cv - a.tw).toFixed(2) : '';
-    const loanStatus = getLoanStatus(a.loanId);
-    let status = '';
-    if (loanStatus === 'pending') status = 'Pending';
-    else if (isFlagged) status = 'Mismatch';
-    else if (isMatched) status = 'Match';
-    else if (a.twRecheckedBy) status = 'Rechecked';
-    else status = 'Not yet rechecked';
-
     const rechecked = a.twUpdatedAt
       ? (a.twUpdatedAt.toDate ? a.twUpdatedAt.toDate().toLocaleString('en-GB') : new Date(a.twUpdatedAt).toLocaleString('en-GB'))
       : '';
@@ -1566,9 +1553,6 @@ async function generateTWReport() {
       val(a.auditor),
       gw != null ? Number(gw).toFixed(2) : '',
       a.tw != null ? Number(a.tw).toFixed(2) : '',
-      hasCv ? Number(cv).toFixed(2) : '',
-      diff,
-      status,
       val(a.twRecheckedBy),
       rechecked
     ];
@@ -1579,8 +1563,8 @@ async function generateTWReport() {
 
   ws['!cols'] = [
     { wch: 18 }, { wch: 22 }, { wch: 12 }, { wch: 16 },
-    { wch: 18 }, { wch: 15 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-    { wch: 16 }, { wch: 18 }, { wch: 20 }
+    { wch: 18 }, { wch: 15 }, { wch: 14 },
+    { wch: 18 }, { wch: 20 }
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Tare Weight Report');
