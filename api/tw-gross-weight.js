@@ -13,6 +13,11 @@
 //     the response is one number per loan, not one row per ornament. This
 //     keeps the payload small and stays cheap even at 10,000 loans (each of
 //     which might have 2-3 ornament rows in `gold`).
+//   - IMPORTANT: gross_weight is the total weight recorded for that ornament
+//     line on the pledge card ("PC" = Pledge Card, not "per piece") — it is
+//     NOT a per-piece figure. It must be summed as-is, never multiplied by
+//     quantity, or the total gets double-counted for any line with quantity
+//     greater than 1.
 //   - Uses the same is_active/is_deleted/original_gold_id filter as the fixed
 //     loan-lookup.js query, so it benefits from the ornament-clubbing fix —
 //     no risk of silently under-counting duplicate-type-same-quantity items.
@@ -49,7 +54,7 @@ export default async function handler(req, res) {
     const inClause = batch.map(id => `'${id}'`).join(',');
 
     const query = `
-      SELECT l.loan_number, SUM(g.gross_weight * g.quantity) AS total_gw
+      SELECT l.loan_number, SUM(g.gross_weight) AS total_gw
       FROM loan l
       JOIN gold g ON g.loan_id = l.id
       WHERE l.loan_number IN (${inClause})
