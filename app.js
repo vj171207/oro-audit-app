@@ -1493,13 +1493,50 @@ function populateReportFilters() {
   if (auditorSel) auditorSel.innerHTML = '<option value="">All auditors</option>' + auditors.map(a => '<option value="' + a + '">' + a + '</option>').join('');
 }
 
-function generateTWReport() {
+async function generateTWReport() {
   const data = window._lastFilteredTW || [];
   if (!data.length) { alert('No tare weight records to export.'); return; }
 
   function val(v) { return (v == null || v === 'null') ? '' : String(v); }
 
-  const headers = ['Loan ID', 'Branch', 'Audit Date', 'Loan Booking Date', 'Original Auditor', 'Stored TW (g)', 'Current TW (g)', 'Difference (g)', 'Status', 'Rechecked By', 'Rechecked At'];
+  const btn = document.getElementById('tw-report-btn');
+  const originalBtnHTML = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Fetching gross weight…'; }
+
+  // Gross weight is fetched LIVE from Metabase rather than read off each
+  // audit's saved ornament snapshot. Snapshots taken before the ornament-
+  // clubbing fix (loan-lookup.js) can permanently under-count duplicate-
+  // type-same-quantity ornaments, which would silently carry a wrong GW
+  // into every future report for that loan. One batched request handles
+  // any number of loans — the endpoint itself chunks internally, so this
+  // is safe whether the report covers 15 loans or 15,000.
+  let gwByLoanId = {};
+  let gwFetchFailed = false;
+  try {
+    const loanIds = data.map(a => a.loanId);
+    const res = await fetch('/api/tw-gross-weight', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ loanIds })
+    });
+    const result = await res.json();
+    if (result.error) throw new Error(result.error);
+    gwByLoanId = result.gwByLoanId || {};
+    if (result.failedBatches) {
+      console.warn('Some gross weight batches failed:', result.failedBatches);
+      gwFetchFailed = true;
+    }
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = originalBtnHTML; }
+    showErrorPopup(
+      'Couldn\'t fetch gross weight',
+      'The report needs live gross weight data from Metabase, which failed to load. No report was generated, so you don\'t end up with silently missing GW figures — try again in a moment.',
+      err.message
+    );
+    return;
+  }
+
+  const headers = ['Loan ID', 'Branch', 'Audit Date', 'Loan Booking Date', 'Original Auditor', 'Gross Weight (g)', 'Stored TW (g)', 'Current TW (g)', 'Difference (g)', 'Status', 'Rechecked By', 'Rechecked At'];
 
   const rows = data.map(a => {
     const cv = twCurrentValues[a.loanId];
@@ -1519,12 +1556,15 @@ function generateTWReport() {
       ? (a.twUpdatedAt.toDate ? a.twUpdatedAt.toDate().toLocaleString('en-GB') : new Date(a.twUpdatedAt).toLocaleString('en-GB'))
       : '';
 
+    const gw = gwByLoanId[a.loanId];
+
     return [
       val(a.loanId),
       val(a.branch),
       formatDate(a.date),
       a.loanBookingDate ? formatDate(a.loanBookingDate) : '',
       val(a.auditor),
+      gw != null ? Number(gw).toFixed(2) : '',
       a.tw != null ? Number(a.tw).toFixed(2) : '',
       hasCv ? Number(cv).toFixed(2) : '',
       diff,
@@ -1539,14 +1579,20 @@ function generateTWReport() {
 
   ws['!cols'] = [
     { wch: 18 }, { wch: 22 }, { wch: 12 }, { wch: 16 },
-    { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+    { wch: 18 }, { wch: 15 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
     { wch: 16 }, { wch: 18 }, { wch: 20 }
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Tare Weight Report');
   const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
   XLSX.writeFile(wb, 'Oro_TareWeight_Report_' + today + '.xlsx');
+
+  if (btn) { btn.disabled = false; btn.innerHTML = originalBtnHTML; }
+  if (gwFetchFailed) {
+    alert('Report downloaded, but gross weight couldn\'t be fetched for some loans (check console for details) — those rows will show a blank Gross Weight value.');
+  }
 }
+
 
 // ────────────────────────────
 // MODAL
