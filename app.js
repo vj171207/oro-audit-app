@@ -1473,6 +1473,35 @@ function renderAllAudits(search = '') {
 
 function filterReports(val) { renderAllAudits(val); }
 
+// ── Quick range dropdown (All Audits date filter) ──
+function toggleQuickRangeMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('quick-range-menu');
+  if (!menu) return;
+  const opening = menu.style.display === 'none';
+  menu.style.display = opening ? 'block' : 'none';
+  if (opening) {
+    // Close on next outside click — one-shot listener, re-armed each time it opens.
+    document.addEventListener('click', closeQuickRangeMenuOnce, { once: true });
+  }
+}
+function closeQuickRangeMenuOnce() {
+  const menu = document.getElementById('quick-range-menu');
+  if (menu) menu.style.display = 'none';
+}
+function applyQuickRange(months) {
+  const to = new Date();
+  const from = new Date();
+  from.setMonth(from.getMonth() - months);
+  const toISO = d => d.toISOString().slice(0, 10);
+  const fromEl = document.getElementById('rf-date-from');
+  const toEl = document.getElementById('rf-date-to');
+  if (fromEl) fromEl.value = toISO(from);
+  if (toEl) toEl.value = toISO(to);
+  closeQuickRangeMenuOnce();
+  applyReportFilters();
+}
+
 function applyReportFilters() {
   renderAllAudits();
 }

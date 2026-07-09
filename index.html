@@ -209,11 +209,11 @@
             <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
               <div class="fg" style="min-width:130px;">
                 <label class="fl">From date</label>
-                <input type="date" id="browse-from" class="fi" style="margin-top:5px; height:36px;" />
+                <input type="date" id="browse-from" class="fi" onclick="this.showPicker && this.showPicker()" style="margin-top:5px; height:36px;" />
               </div>
               <div class="fg" style="min-width:130px;">
                 <label class="fl">To date</label>
-                <input type="date" id="browse-to" class="fi" style="margin-top:5px; height:36px;" />
+                <input type="date" id="browse-to" class="fi" onclick="this.showPicker && this.showPicker()" style="margin-top:5px; height:36px;" />
               </div>
               <button class="btn-ghost" onclick="browseLoans()" style="height:36px; white-space:nowrap; font-size:13px;">Filter →</button>
             </div>
@@ -396,11 +396,11 @@
           </select>
           <div style="display:flex; align-items:center; gap:4px;">
             <span style="font-size:12px; color:var(--text-3); white-space:nowrap;">From</span>
-            <input type="date" id="tw-date-from" class="fi" onchange="applyTWFilters(true)" style="height:34px; font-size:12px; width:130px;" />
+            <input type="date" id="tw-date-from" class="fi" onchange="applyTWFilters(true)" onclick="this.showPicker && this.showPicker()" style="height:34px; font-size:12px; width:130px;" />
           </div>
           <div style="display:flex; align-items:center; gap:4px;">
             <span style="font-size:12px; color:var(--text-3); white-space:nowrap;">To</span>
-            <input type="date" id="tw-date-to" class="fi" onchange="applyTWFilters(true)" style="height:34px; font-size:12px; width:130px;" />
+            <input type="date" id="tw-date-to" class="fi" onchange="applyTWFilters(true)" onclick="this.showPicker && this.showPicker()" style="height:34px; font-size:12px; width:130px;" />
           </div>
           <button class="btn-ghost" onclick="clearTWFilters()" style="height:34px; font-size:12px; padding:0 10px; white-space:nowrap;">Clear filters</button>
           <div class="filter-group">
@@ -500,11 +500,23 @@
           </div>
           <div class="fg">
             <label class="fl">From date</label>
-            <input type="date" class="fi" id="rf-date-from" style="height:34px; font-size:13px;" />
+            <input type="date" class="fi" id="rf-date-from" onclick="this.showPicker && this.showPicker()" style="height:34px; font-size:13px;" />
           </div>
           <div class="fg">
             <label class="fl">To date</label>
-            <input type="date" class="fi" id="rf-date-to" style="height:34px; font-size:13px;" />
+            <input type="date" class="fi" id="rf-date-to" onclick="this.showPicker && this.showPicker()" style="height:34px; font-size:13px;" />
+          </div>
+          <div class="fg" style="position:relative;">
+            <label class="fl">Quick range</label>
+            <button type="button" class="fi" onclick="toggleQuickRangeMenu(event)" style="height:34px; font-size:13px; display:flex; align-items:center; justify-content:space-between; gap:6px; cursor:pointer; min-width:120px;">
+              <span>Last…</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="quick-range-menu" style="display:none; position:absolute; top:100%; left:0; margin-top:4px; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm); box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; min-width:150px; overflow:hidden;">
+              <button type="button" class="quick-range-item" onclick="applyQuickRange(1)">Last month</button>
+              <button type="button" class="quick-range-item" onclick="applyQuickRange(3)">Last 3 months</button>
+              <button type="button" class="quick-range-item" onclick="applyQuickRange(6)">Last 6 months</button>
+            </div>
           </div>
           <div style="display:flex; gap:8px;">
             <button class="btn-dark" onclick="applyReportFilters()" style="height:34px; font-size:13px; flex:1;">Search now</button>

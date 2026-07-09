@@ -107,6 +107,36 @@ body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color
 .fi { height: 36px; padding: 0 11px; border: 1px solid var(--border); border-radius: var(--r-sm); font-size: 13.5px; font-family: inherit; background: var(--surface); color: var(--text-1); outline: none; transition: border-color 0.12s; }
 .fi:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,149,42,0.08); }
 
+/* Native date inputs' calendar icon renders dark-on-dark by default and is
+   effectively invisible against this theme — invert it so it's clearly
+   visible and obviously clickable, and make the whole field feel clickable. */
+input[type="date"].fi { cursor: pointer; }
+input[type="date"].fi::-webkit-calendar-picker-indicator {
+  filter: invert(0.75);
+  cursor: pointer;
+  padding: 4px;
+  margin-right: -2px;
+}
+input[type="date"].fi::-webkit-calendar-picker-indicator:hover {
+  filter: invert(0.95);
+}
+
+.quick-range-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+.quick-range-item:hover { background: var(--surface-2, rgba(255,255,255,0.06)); }
+.quick-range-item + .quick-range-item { border-top: 1px solid var(--border); }
+
 /* Override Chrome/Safari's forced autofill background so filled fields
    stay the same dark surface as empty ones, instead of turning white. */
 .fi:-webkit-autofill,
