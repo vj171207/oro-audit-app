@@ -1118,24 +1118,20 @@ function renderTWTable(search = '', filter = twFilter) {
   `;
 
   const branchFilter = document.getElementById('tw-branch-filter')?.value || '';
-  const dateFrom = document.getElementById('tw-date-from')?.value || '';
-  const dateTo = document.getElementById('tw-date-to')?.value || '';
 
   const filtered = loans.filter(a => {
     const s = search.toLowerCase();
     const matchSearch = !s || a.loanId.toLowerCase().includes(s);
     const matchBranch = !branchFilter || a.branch === branchFilter;
-    const matchFrom = !dateFrom || a.date >= dateFrom;
-    const matchTo = !dateTo || a.date <= dateTo;
     const cv = twCurrentValues[a.loanId];
     const hasCv = cv !== undefined;
     const isFlagged = hasCv && a.tw != null && Math.abs(cv - a.tw) > TW_THRESHOLD;
     const isMatched = hasCv && !isFlagged;
     const loanSt = getLoanStatus(a.loanId);
-    if (filter === 'pending') return matchSearch && matchBranch && matchFrom && matchTo && loanSt === 'pending';
-    if (filter === 'matched') return matchSearch && matchBranch && matchFrom && matchTo && isMatched;
-    if (filter === 'flagged') return matchSearch && matchBranch && matchFrom && matchTo && isFlagged;
-    return matchSearch && matchBranch && matchFrom && matchTo;
+    if (filter === 'pending') return matchSearch && matchBranch && loanSt === 'pending';
+    if (filter === 'matched') return matchSearch && matchBranch && isMatched;
+    if (filter === 'flagged') return matchSearch && matchBranch && isFlagged;
+    return matchSearch && matchBranch;
   });
 
   const tbody = document.getElementById('tw-tbody');
@@ -1321,12 +1317,8 @@ function filterTW(val) { renderTWTable(val, twFilter); }
 
 function clearTWFilters() {
   const branchSel = document.getElementById('tw-branch-filter');
-  const dateFrom = document.getElementById('tw-date-from');
-  const dateTo = document.getElementById('tw-date-to');
   const searchInput = document.getElementById('tw-search-input');
   if (branchSel) branchSel.value = '';
-  if (dateFrom) dateFrom.value = '';
-  if (dateTo) dateTo.value = '';
   if (searchInput) searchInput.value = '';
   renderTWTable('', twFilter);
 }
