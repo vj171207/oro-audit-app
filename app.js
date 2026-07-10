@@ -798,12 +798,22 @@ function getPreviousAuditForLoan(loanId) {
 //   'unambiguous' — no goldId on the old record (it predates this feature),
 //                    but only one past entry shares this ornament's type
 //                    name, so there's nothing to actually be ambiguous about.
-//   'ambiguous'   — multiple past entries share this type name and none
-//                    carry a goldId to disambiguate with. Deliberately NOT
-//                    resolved by guessing (e.g. by position) — a wrong
-//                    guess dressed up as authoritative is worse than no
-//                    autofill at all. All candidates are surfaced instead.
-//   'none'        — no past audit, or no past entry of this type at all.
+//   'renamed'     — no goldId, and no past entry shares this exact type
+//                    name — but exactly one past entry has the same
+//                    Pledge Card weight (a fixed physical measurement that
+//                    doesn't change even if a type label gets renamed).
+//                    Treated the same as 'unambiguous' for autofill purposes,
+//                    just labeled differently so it's clear what happened.
+//   'ambiguous'   — multiple past entries share this type name (or weight)
+//                    and none carry a goldId to disambiguate with.
+//                    Deliberately NOT resolved by guessing — a wrong guess
+//                    dressed up as authoritative is worse than no autofill
+//                    at all. All candidates are surfaced instead.
+//   'none'        — no past audit, or genuinely nothing comparable found.
+function closeEnoughWeight(a, b) {
+  const x = parseFloat(a), y = parseFloat(b);
+  return !isNaN(x) && !isNaN(y) && Math.abs(x - y) < 0.001;
+}
 function matchPreviousOrnament(currentOrnament, previousOrnaments) {
   if (!previousOrnaments || !previousOrnaments.length) return { mode: 'none' };
 
@@ -813,11 +823,17 @@ function matchPreviousOrnament(currentOrnament, previousOrnaments) {
   }
 
   const sameType = previousOrnaments.filter(p => p.type === currentOrnament.type);
-  if (!sameType.length) return { mode: 'none' };
-
   if (sameType.length === 1) return { mode: 'unambiguous', matched: sameType[0] };
+  if (sameType.length > 1) return { mode: 'ambiguous', candidates: sameType };
 
-  return { mode: 'ambiguous', candidates: sameType };
+  // No past entry shares this exact type name at all — try matching by
+  // Pledge Card weight across ALL past entries instead, in case the type
+  // label itself has been renamed since the old audit.
+  const weightMatches = previousOrnaments.filter(p => closeEnoughWeight(p.gwPC, currentOrnament.gw));
+  if (weightMatches.length === 1) return { mode: 'renamed', matched: weightMatches[0] };
+  if (weightMatches.length > 1) return { mode: 'ambiguous', candidates: weightMatches };
+
+  return { mode: 'none' };
 }
 
 function renderAllOrnamentCards() {
@@ -844,6 +860,11 @@ function renderAllOrnamentCards() {
       referenceBanner = `
         <div style="background:rgba(201,149,42,0.08); border:1px solid var(--gold); border-radius:var(--r-sm); padding:8px 12px; margin-bottom:14px; font-size:12px; color:var(--text-2);">
           ↻ Carried over from previous audit (${formatDate(prevAudit.date)}) — verify against today's measurement, edit if it's changed.
+        </div>`;
+    } else if (match.mode === 'renamed') {
+      referenceBanner = `
+        <div style="background:rgba(201,149,42,0.08); border:1px solid var(--gold); border-radius:var(--r-sm); padding:8px 12px; margin-bottom:14px; font-size:12px; color:var(--text-2);">
+          ↻ Carried over from previous audit (${formatDate(prevAudit.date)}) — matched by weight, since this was recorded as "${m.type}" last time (now "${o.type}"). Verify against today's measurement, edit if it's changed.
         </div>`;
     } else if (match.mode === 'ambiguous') {
       referenceBanner = `
