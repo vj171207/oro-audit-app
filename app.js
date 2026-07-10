@@ -841,20 +841,21 @@ function autoCalcNWi(i) {
 }
 
 function collectAndReview() {
-  // Mandatory-fields check — every ornament's audited GW, stone deduction,
-  // karat, and hallmark must be filled in before moving on. "New/old packet
-  // ID" and "Remarks" are deliberately excluded: the packet ID field's own
-  // placeholder says "Leave blank if unchanged", and remarks are freeform
-  // notes that are legitimately often blank — forcing those would fight
-  // their own designed purpose. Stone deduction of "0" is a valid, filled
-  // value; only a genuinely empty field fails this check.
+  // Mandatory-fields check — every ornament's count, audited GW, stone
+  // deduction, karat, and hallmark must be filled in before moving on.
+  // "New/old packet ID" and "Remarks" are deliberately excluded: the packet
+  // ID field's own placeholder says "Leave blank if unchanged", and remarks
+  // are freeform notes that are legitimately often blank — forcing those
+  // would fight their own designed purpose. Stone deduction of "0" is a
+  // valid, filled value; only a genuinely empty field fails this check.
   for (let i = 0; i < currentOrnaments.length; i++) {
+    const count = document.getElementById('aud-count-' + i)?.value;
     const gw = document.getElementById('aud-gw-' + i)?.value;
     const stone = document.getElementById('aud-stone-' + i)?.value;
     const karat = document.getElementById('aud-karat-' + i)?.value;
     const hallmark = document.getElementById('aud-hallmark-' + i)?.value;
-    if (gw === '' || gw == null || stone === '' || stone == null || karat === '' || karat == null || !hallmark) {
-      showErrorPopup('All parameters must be filled', `Every field for "${currentOrnaments[i].type}" (Ornament ${i + 1}) — GW, stone deduction, karat, and hallmark — must be filled in before continuing.`);
+    if (count === '' || count == null || gw === '' || gw == null || stone === '' || stone == null || karat === '' || karat == null || !hallmark) {
+      showErrorPopup('All parameters must be filled', `Every field for "${currentOrnaments[i].type}" (Ornament ${i + 1}) — count, GW, stone deduction, karat, and hallmark — must be filled in before continuing.`);
       return;
     }
   }
@@ -1036,7 +1037,7 @@ function handleSubmit() {
     submittedAt: new Date().toISOString(),
   };
 
-  const btn = document.querySelector('#submit-row .btn-dark');
+  const btn = document.getElementById('submit-audit-btn');
   btn.textContent = 'Saving...';
   btn.disabled = true;
 
@@ -1061,7 +1062,7 @@ function handleSubmit() {
         err.message
       );
       console.error(err);
-      btn.textContent = 'Submit audit';
+      btn.innerHTML = 'Submit audit <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
       btn.disabled = false;
     });
 }
@@ -1111,8 +1112,11 @@ function clearForm() {
   if (container) container.innerHTML = '';
 
   // Reset submit button
-  const btn = document.querySelector('#submit-row .btn-dark');
-  if (btn) { btn.textContent = 'Submit audit ✓'; btn.disabled = false; }
+  const btn = document.getElementById('submit-audit-btn');
+  if (btn) {
+    btn.innerHTML = 'Submit audit <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    btn.disabled = false;
+  }
 
   // Hide all cards and go back to step 1
   hideAuditCards();
