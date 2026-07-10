@@ -625,6 +625,28 @@ function handleFetch() {
     hint.className = 'field-hint error';
     return;
   }
+
+  // Wipe every loan-level field from whatever the previous audit left behind
+  // BEFORE loading the new loan's data. This runs for every lookup — direct
+  // entry or picking from the incremental/browse list — since both funnel
+  // through this function. Deliberately does NOT touch loan-id-input (which
+  // was just read above) or the audit date lock (session-wide, not per-loan).
+  const twInput = document.getElementById('tw-input');
+  if (twInput) twInput.value = '';
+  const excessSel = document.getElementById('excess-select');
+  if (excessSel) excessSel.value = 'No';
+  const spuriousSel = document.getElementById('spurious-select');
+  if (spuriousSel) spuriousSel.value = 'No';
+  const excessAmt = document.getElementById('excess-amount-input');
+  if (excessAmt) excessAmt.value = '';
+  const excessGroup = document.getElementById('excess-amount-group');
+  if (excessGroup) excessGroup.style.display = 'none';
+  const remarksField = document.getElementById('audit-remarks');
+  if (remarksField) remarksField.value = '';
+  const packetIdField = document.getElementById('loan-packet-id');
+  if (packetIdField) packetIdField.value = '';
+  auditedOrnaments = [];
+
   hint.textContent = 'Loading ops data...';
   hint.className = 'field-hint';
   if (id === DEMO_LOAN_ID) { populateOpsCard(id, DEMO_OPS_DATA); return; }
@@ -1079,6 +1101,10 @@ function clearForm() {
   if (spuriousSel) spuriousSel.value = 'No';
   const excessGroup = document.getElementById('excess-amount-group');
   if (excessGroup) excessGroup.style.display = 'none';
+  const remarksField = document.getElementById('audit-remarks');
+  if (remarksField) remarksField.value = '';
+  const packetIdField = document.getElementById('loan-packet-id');
+  if (packetIdField) packetIdField.value = '';
 
   // Clear ornament cards container
   const container = document.getElementById('ornament-cards-container');
@@ -1092,6 +1118,18 @@ function clearForm() {
   hideAuditCards();
   document.getElementById('success-bar').classList.add('hidden');
   setStep(1);
+}
+
+// Used by the "Start next audit →" button after a successful submission.
+// Fully resets the form (same as clearForm), then — instead of leaving the
+// auditor on whichever tab they last used (often the blank "Enter loan ID"
+// screen) — switches to the incremental "Browse by date" list and reloads
+// it immediately, so the loan just audited is already gone without needing
+// a manual page refresh.
+function startNextAudit() {
+  clearForm();
+  switchLookupTab('browse');
+  loadUnauditedLoans();
 }
 
 // ────────────────────────────
