@@ -821,6 +821,32 @@ function autoCalcNWi(i) {
 }
 
 function collectAndReview() {
+  // Mandatory-fields check — every ornament's audited GW, stone deduction,
+  // karat, and hallmark must be filled in before moving on. "New/old packet
+  // ID" and "Remarks" are deliberately excluded: the packet ID field's own
+  // placeholder says "Leave blank if unchanged", and remarks are freeform
+  // notes that are legitimately often blank — forcing those would fight
+  // their own designed purpose. Stone deduction of "0" is a valid, filled
+  // value; only a genuinely empty field fails this check.
+  for (let i = 0; i < currentOrnaments.length; i++) {
+    const gw = document.getElementById('aud-gw-' + i)?.value;
+    const stone = document.getElementById('aud-stone-' + i)?.value;
+    const karat = document.getElementById('aud-karat-' + i)?.value;
+    const hallmark = document.getElementById('aud-hallmark-' + i)?.value;
+    if (gw === '' || gw == null || stone === '' || stone == null || karat === '' || karat == null || !hallmark) {
+      showErrorPopup('All parameters must be filled', `Every field for "${currentOrnaments[i].type}" (Ornament ${i + 1}) — GW, stone deduction, karat, and hallmark — must be filled in before continuing.`);
+      return;
+    }
+  }
+
+  // Excess amount is only mandatory when excess funding is marked "Yes".
+  const excessVal = document.getElementById('excess-select')?.value;
+  const excessAmt = document.getElementById('excess-amount-input')?.value;
+  if (excessVal === 'Yes' && (excessAmt === '' || excessAmt == null)) {
+    showErrorPopup('All parameters must be filled', 'Excess funding is marked "Yes" — the excess amount must be entered before continuing.');
+    return;
+  }
+
   auditedOrnaments = currentOrnaments.map((o, i) => ({
     type: o.type,
     count: o.count,
@@ -957,6 +983,19 @@ function handleSubmit() {
   const tw = parseFloat(document.getElementById('tw-input').value);
   if (!currentLoanId) { alert('No loan loaded.'); return; }
   if (isNaN(tw) || tw <= 0) { alert('Please enter a valid tear weight before submitting.'); return; }
+
+  // Tare weight (the whole sealed packet, gold + packaging) can physically
+  // never weigh less than the gold alone. gwAudit values are already totals
+  // per ornament line (Pledge Card convention — not per-piece), so they're
+  // summed directly, never multiplied by count.
+  const totalAuditedGW = auditedOrnaments.reduce((sum, o) => {
+    const gw = parseFloat(o.gwAudit);
+    return sum + (isNaN(gw) ? 0 : gw);
+  }, 0);
+  if (tw < totalAuditedGW) {
+    showErrorPopup('TW cannot be lesser than GW', `Tare weight (${tw}g) is less than the total gross weight audited (${totalAuditedGW.toFixed(2)}g). A sealed packet can never weigh less than the gold inside it — please recheck the tare weight or the audited GW values.`);
+    return;
+  }
 
   const audit = {
     loanId: currentLoanId,
