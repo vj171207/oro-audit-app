@@ -787,8 +787,14 @@ function getPreviousAuditForLoan(loanId) {
 }
 
 // Matches one CURRENT ornament against the previous audit's ornament list.
-//   'exact'       — previous record has the same goldId. Always correct,
-//                    regardless of how many same-named ornaments exist.
+//   'exact'       — previous record has the same goldId. Checked FIRST,
+//                    across ALL previous ornaments regardless of type name —
+//                    goldId is a stable database identifier even if Metabase's
+//                    type naming drifts over time (e.g. an old record says
+//                    "Stud" while a live fetch now returns "Studs" — a real
+//                    case found in production). Type name is only used as a
+//                    fallback signal, never as a gate that blocks a real
+//                    goldId match from being found.
 //   'unambiguous' — no goldId on the old record (it predates this feature),
 //                    but only one past entry shares this ornament's type
 //                    name, so there's nothing to actually be ambiguous about.
@@ -801,13 +807,13 @@ function getPreviousAuditForLoan(loanId) {
 function matchPreviousOrnament(currentOrnament, previousOrnaments) {
   if (!previousOrnaments || !previousOrnaments.length) return { mode: 'none' };
 
-  const sameType = previousOrnaments.filter(p => p.type === currentOrnament.type);
-  if (!sameType.length) return { mode: 'none' };
-
   if (currentOrnament.goldId != null) {
-    const exact = sameType.find(p => p.goldId != null && String(p.goldId) === String(currentOrnament.goldId));
+    const exact = previousOrnaments.find(p => p.goldId != null && String(p.goldId) === String(currentOrnament.goldId));
     if (exact) return { mode: 'exact', matched: exact };
   }
+
+  const sameType = previousOrnaments.filter(p => p.type === currentOrnament.type);
+  if (!sameType.length) return { mode: 'none' };
 
   if (sameType.length === 1) return { mode: 'unambiguous', matched: sameType[0] };
 
