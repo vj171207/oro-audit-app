@@ -786,8 +786,6 @@ function renderAllOrnamentCards() {
           <select class="fs" id="aud-spurious-${i}">
             <option value="No">No</option><option value="Yes">Yes</option>
           </select></div>
-        <div class="fg"><label class="fl">New / old packet ID</label>
-          <input type="text" class="fi" id="aud-packet-${i}" placeholder="Leave blank if unchanged" /></div>
       </div>
     </div>
   `).join('');
@@ -861,7 +859,6 @@ function collectAndReview() {
     hallmark: document.getElementById('aud-hallmark-' + i)?.value || '',
     countAudit: parseInt(document.getElementById('aud-count-' + i)?.value) || null,
     spurious: document.getElementById('aud-spurious-' + i)?.value || 'No',
-    newPacketId: document.getElementById('aud-packet-' + i)?.value || '',
   }));
   showAuditPreview();
 }
@@ -878,6 +875,7 @@ function showAuditPreview() {
   const excess = document.getElementById('excess-select')?.value || 'No';
   const excessAmt = document.getElementById('excess-amount-input')?.value || '';
   const spurious = document.getElementById('spurious-select')?.value || 'No';
+  const packetId = document.getElementById('loan-packet-id')?.value || '';
 
   document.getElementById('audit-preview-content').innerHTML = `
     <div style="margin-bottom:20px;">
@@ -913,13 +911,13 @@ function showAuditPreview() {
           </div>
           ${o.hallmark ? `<div style="margin-top:8px; font-size:12px;"><span style="color:var(--text-3);">Hallmark:</span> ${o.hallmark}</div>` : ''}
           ${o.spurious === 'Yes' ? `<div style="margin-top:4px; font-size:12px; color:var(--danger); font-weight:500;">⚠ Spurious</div>` : ''}
-          ${o.newPacketId ? `<div style="margin-top:4px; font-size:12px;"><span style="color:var(--text-3);">New packet ID:</span> ${o.newPacketId}</div>` : ''}
         </div>
       `).join('')}
     </div>
     <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:12px;">
       <div><div style="font-size:11px; color:var(--text-3);">Excess funding</div><div style="font-size:14px; font-weight:600; color:${excess === 'Yes' ? 'var(--danger)' : 'inherit'}">${excess}${excessAmt ? ' — ₹' + Number(excessAmt).toLocaleString('en-IN') : ''}</div></div>
       <div><div style="font-size:11px; color:var(--text-3);">Spurious</div><div style="font-size:14px; font-weight:600; color:${spurious === 'Yes' ? 'var(--danger)' : 'inherit'}">${spurious}</div></div>
+      <div><div style="font-size:11px; color:var(--text-3);">New / old packet ID</div><div style="font-size:14px; font-weight:600;">${packetId || '—'}</div></div>
     </div>
     ${remarks ? `<div style="padding:10px 14px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); font-size:13px;">${remarks}</div>` : ''}
     <button class="btn-ghost" style="margin-top:12px; font-size:12px;" onclick="goBackToAudit()">← Edit audit data</button>
@@ -1011,6 +1009,7 @@ function handleSubmit() {
     loanAmount: document.getElementById('f-amount').textContent,
     loanBookingDate: currentLoanBookingDate || null,
     remarks: document.getElementById('audit-remarks')?.value || '',
+    newPacketId: document.getElementById('loan-packet-id')?.value || '',
     ornaments: auditedOrnaments,
     submittedAt: new Date().toISOString(),
   };
@@ -2165,7 +2164,6 @@ function openModal(docId) {
             <div class="mfv" style="color:${o.spurious === 'Yes' ? 'var(--danger)' : 'inherit'}; font-weight:${o.spurious === 'Yes' ? '600' : 'normal'}">${o.spurious || '—'}</div>
           </div>
         </div>
-        ${o.newPacketId ? `<div style="font-size:12px;"><span class="mfl">New packet ID:</span> ${o.newPacketId}</div>` : ''}
       </div>
     `).join('')}
   ` : `<div class="modal-section">Ornament audit data</div><div style="font-size:13px; color:var(--text-3); padding:8px 0 16px;">No ornament detail available for this record.</div>`;
@@ -2186,6 +2184,7 @@ function openModal(docId) {
       <div><div class="mfl">Tear weight</div><div class="mfv">${a.tw != null ? Number(a.tw).toFixed(2) + ' g' : '—'}</div></div>
       <div><div class="mfl">Excess funding</div><div class="mfv" style="color:${a.excessFunding === 'Yes' ? 'var(--danger)' : 'inherit'}">${a.excessFunding}${a.excessAmount ? ' — ₹' + Number(a.excessAmount).toLocaleString('en-IN') : ''}</div></div>
       <div><div class="mfl">Spurious</div><div class="mfv" style="color:${a.spurious === 'Yes' ? 'var(--danger)' : 'inherit'}">${a.spurious}</div></div>
+      <div><div class="mfl">New / old packet ID</div><div class="mfv">${a.newPacketId || '—'}</div></div>
     </div>
     ${ornamentHTML}
     ${a.remarks ? `<div class="modal-section">Remarks</div><div class="remarks-block">${a.remarks}</div>` : ''}
