@@ -685,7 +685,8 @@ function handleFetch() {
           stoneDed: o.stoneDed,
           karat: o.karat,
           nw: o.nw,
-          hallmark: '—'
+          hallmark: '—',
+          goldId: o.goldId
         }))
       });
     })
@@ -773,28 +774,105 @@ function initOrnamentStepper(ornaments) {
   renderAllOrnamentCards();
 }
 
+// ── Re-audit reference matching ──
+// Finds the most recent PAST audit of this exact loan (there may be more
+// than one if it's been re-audited before) — excludes metabase-sync
+// placeholders, which aren't real audits.
+function getPreviousAuditForLoan(loanId) {
+  const past = auditStore.filter(a =>
+    a.loanId === loanId && a.source !== 'metabase-sync' && a.auditor && a.auditor !== '—'
+  );
+  if (!past.length) return null;
+  return past.reduce((latest, a) => (!latest || a.date > latest.date) ? a : latest, null);
+}
+
+// Matches one CURRENT ornament against the previous audit's ornament list.
+//   'exact'       — previous record has the same goldId. Always correct,
+//                    regardless of how many same-named ornaments exist.
+//   'unambiguous' — no goldId on the old record (it predates this feature),
+//                    but only one past entry shares this ornament's type
+//                    name, so there's nothing to actually be ambiguous about.
+//   'ambiguous'   — multiple past entries share this type name and none
+//                    carry a goldId to disambiguate with. Deliberately NOT
+//                    resolved by guessing (e.g. by position) — a wrong
+//                    guess dressed up as authoritative is worse than no
+//                    autofill at all. All candidates are surfaced instead.
+//   'none'        — no past audit, or no past entry of this type at all.
+function matchPreviousOrnament(currentOrnament, previousOrnaments) {
+  if (!previousOrnaments || !previousOrnaments.length) return { mode: 'none' };
+
+  const sameType = previousOrnaments.filter(p => p.type === currentOrnament.type);
+  if (!sameType.length) return { mode: 'none' };
+
+  if (currentOrnament.goldId != null) {
+    const exact = sameType.find(p => p.goldId != null && String(p.goldId) === String(currentOrnament.goldId));
+    if (exact) return { mode: 'exact', matched: exact };
+  }
+
+  if (sameType.length === 1) return { mode: 'unambiguous', matched: sameType[0] };
+
+  return { mode: 'ambiguous', candidates: sameType };
+}
+
 function renderAllOrnamentCards() {
   const container = document.getElementById('ornament-cards-container');
   if (!container) return;
-  container.innerHTML = currentOrnaments.map((o, i) => `
+
+  const prevAudit = currentLoanId ? getPreviousAuditForLoan(currentLoanId) : null;
+  const prevOrnaments = prevAudit ? prevAudit.ornaments : null;
+
+  container.innerHTML = currentOrnaments.map((o, i) => {
+    const match = matchPreviousOrnament(o, prevOrnaments);
+    const m = match.matched;
+
+    // Values to prefill — only for exact/unambiguous matches. Ambiguous and
+    // none leave every field genuinely blank, exactly as before this feature.
+    const preCount = m ? (m.countAudit ?? m.count ?? '') : '';
+    const preGw = m ? (m.gwAudit || '') : '';
+    const preStone = m ? (m.stoneDedAudit || '') : '';
+    const preKarat = m ? (m.karatAudit || '') : '';
+    const preHallmark = m ? (m.hallmark || '') : '';
+
+    let referenceBanner = '';
+    if (match.mode === 'exact' || match.mode === 'unambiguous') {
+      referenceBanner = `
+        <div style="background:rgba(201,149,42,0.08); border:1px solid var(--gold); border-radius:var(--r-sm); padding:8px 12px; margin-bottom:14px; font-size:12px; color:var(--text-2);">
+          ↻ Carried over from previous audit (${formatDate(prevAudit.date)}) — verify against today's measurement, edit if it's changed.
+        </div>`;
+    } else if (match.mode === 'ambiguous') {
+      referenceBanner = `
+        <div style="background:rgba(220,60,60,0.08); border:1px solid var(--danger-border); border-radius:var(--r-sm); padding:8px 12px; margin-bottom:14px; font-size:12px; color:var(--text-2);">
+          ⚠ ${match.candidates.length} previous "${o.type}" entries found from ${formatDate(prevAudit.date)} — not auto-filled since it's unclear which matches which physical piece. Compare manually:
+          <div style="margin-top:6px; display:flex; flex-direction:column; gap:4px;">
+            ${match.candidates.map((c, ci) => `
+              <div style="font-size:11.5px; color:var(--text-3);">
+                #${ci + 1} — GW: ${c.gwAudit || '—'}g, Stone: ${c.stoneDedAudit || '—'}g, Karat: ${c.karatAudit || '—'}kt, Hallmark: ${c.hallmark || '—'}
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+    }
+
+    return `
     <div style="border:1px solid var(--border); border-radius:var(--r-sm); padding:16px 20px; margin-bottom:16px;">
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
         <div style="font-size:15px; font-weight:600; color:var(--text-1);">${o.type}</div>
         <div style="display:flex; align-items:center; gap:6px;">
           <label style="font-size:12px; color:var(--text-3); white-space:nowrap;">Count</label>
-          <input type="number" min="1" step="1" class="fi" id="aud-count-${i}" placeholder="—"
+          <input type="number" min="1" step="1" class="fi" id="aud-count-${i}" placeholder="—" value="${preCount}"
             style="width:64px; height:28px; font-size:13px; text-align:center;" />
         </div>
       </div>
+      ${referenceBanner}
       <div class="form-grid-3">
         <div class="fg"><label class="fl">GW as per audit (g)</label>
-          <input type="number" step="0.01" class="fi" id="aud-gw-${i}" placeholder="0.00"
+          <input type="number" step="0.01" class="fi" id="aud-gw-${i}" placeholder="0.00" value="${preGw}"
             oninput="autoCalcNWi(${i})" /></div>
         <div class="fg"><label class="fl">Stone deduction (g)</label>
-          <input type="number" step="0.01" class="fi" id="aud-stone-${i}" placeholder="0.00"
+          <input type="number" step="0.01" class="fi" id="aud-stone-${i}" placeholder="0.00" value="${preStone}"
             oninput="autoCalcNWi(${i})" /></div>
         <div class="fg"><label class="fl">Karat</label>
-          <input type="number" step="1" class="fi" id="aud-karat-${i}" placeholder="e.g. 22"
+          <input type="number" step="1" class="fi" id="aud-karat-${i}" placeholder="e.g. 22" value="${preKarat}"
             oninput="autoCalcNWi(${i})" /></div>
         <div class="fg">
           <label class="fl">NW (g) <span style="font-size:10px; color:var(--gold); font-weight:500;">Auto-calculated</span></label>
@@ -802,7 +880,9 @@ function renderAllOrnamentCards() {
             style="background:var(--surface-2); cursor:not-allowed; font-weight:600;" /></div>
         <div class="fg"><label class="fl">Hallmark</label>
           <select class="fs" id="aud-hallmark-${i}">
-            <option value="">Select</option><option>Yes</option><option>No</option>
+            <option value="" ${preHallmark === '' ? 'selected' : ''}>Select</option>
+            <option ${preHallmark === 'Yes' ? 'selected' : ''}>Yes</option>
+            <option ${preHallmark === 'No' ? 'selected' : ''}>No</option>
           </select></div>
         <div class="fg"><label class="fl">Spurious</label>
           <select class="fs" id="aud-spurious-${i}">
@@ -810,7 +890,12 @@ function renderAllOrnamentCards() {
           </select></div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
+
+  // NW needs recalculating for any card that was just prefilled, same as if
+  // the auditor had typed those values in by hand.
+  currentOrnaments.forEach((o, i) => autoCalcNWi(i));
 }
 
 function autoCalcNWi(i) {
@@ -871,6 +956,7 @@ function collectAndReview() {
   auditedOrnaments = currentOrnaments.map((o, i) => ({
     type: o.type,
     count: o.count,
+    goldId: o.goldId ?? null,
     gwPC: o.gw,
     stoneDedPC: o.stoneDed,
     karatPC: o.karat,

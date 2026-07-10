@@ -54,7 +54,8 @@ export default async function handler(req, res) {
       g.gross_weight,
       g.stone_deduction,
       g.actual_quality AS karat,
-      g.net_weight
+      g.net_weight,
+      g.id AS gold_id
     FROM loan l
     JOIN gold g ON g.loan_id = l.id
     JOIN gold_ornament go_type ON go_type.id = g.gold_ornament_type_id
@@ -112,7 +113,8 @@ export default async function handler(req, res) {
         gw: r[7],
         stoneDed: r[8],
         karat: r[9],
-        nw: r[10]
+        nw: r[10],
+        goldId: r[11]
       }))
     };
 
