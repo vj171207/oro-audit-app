@@ -1074,20 +1074,6 @@ function goBackToAudit() {
 // ────────────────────────────
 // AUTO CALCULATE NW
 // ────────────────────────────
-function autoCalcNW() {
-  const gw = parseFloat(document.getElementById('aud-gw').value);
-  const stone = parseFloat(document.getElementById('aud-stone').value) || 0;
-  const karat = parseFloat(document.getElementById('aud-karat').value);
-  const nwInput = document.getElementById('aud-nw');
-
-  if (!isNaN(gw) && !isNaN(karat) && karat > 0) {
-    const nw = ((gw - stone) * karat) / 22;
-    nwInput.value = nw.toFixed(2);
-  } else {
-    nwInput.value = '';
-  }
-}
-
 // ────────────────────────────
 // EXCESS FUNDING TOGGLE
 // ────────────────────────────
@@ -1506,8 +1492,6 @@ function applyTWFilters(resetPage = false) {
   renderTWTable(search, twFilter);
 }
 
-function filterTW(val) { renderTWTable(val, twFilter); }
-
 function clearTWFilters() {
   const branchSel = document.getElementById('tw-branch-filter');
   const searchInput = document.getElementById('tw-search-input');
@@ -1655,8 +1639,6 @@ function renderAllAudits(search = '') {
       </tr>`;
   }).join('');
 }
-
-function filterReports(val) { renderAllAudits(val); }
 
 // ── Quick range dropdown (All Audits date filter) ──
 function toggleQuickRangeMenu(e) {
