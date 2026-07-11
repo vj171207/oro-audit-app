@@ -276,6 +276,22 @@ function confirmAuditDateUnlock() {
 }
 
 // ── Date formatter ──
+// Escapes free-text before it's inserted into rendered HTML (Remarks,
+// Packet ID) — anything an auditor typed could otherwise contain characters
+// like < or > that a browser would try to interpret as HTML/code rather
+// than display as plain text. Normal text (letters, numbers, punctuation
+// without < > & " ') displays completely unchanged; only those five
+// characters get converted to their safe equivalents.
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function formatDate(dateStr) {
   if (!dateStr || dateStr === "—") return "—";
   const parts = dateStr.split("-");
@@ -1053,9 +1069,9 @@ function showAuditPreview() {
     <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:12px;">
       <div><div style="font-size:11px; color:var(--text-3);">Excess funding</div><div style="font-size:14px; font-weight:600; color:${excess === 'Yes' ? 'var(--danger)' : 'inherit'}">${excess}${excessAmt ? ' — ₹' + Number(excessAmt).toLocaleString('en-IN') : ''}</div></div>
       <div><div style="font-size:11px; color:var(--text-3);">Spurious</div><div style="font-size:14px; font-weight:600; color:${spurious === 'Yes' ? 'var(--danger)' : 'inherit'}">${spurious}</div></div>
-      <div><div style="font-size:11px; color:var(--text-3);">New / old packet ID</div><div style="font-size:14px; font-weight:600;">${packetId || '—'}</div></div>
+      <div><div style="font-size:11px; color:var(--text-3);">New / old packet ID</div><div style="font-size:14px; font-weight:600;">${escapeHtml(packetId) || '—'}</div></div>
     </div>
-    ${remarks ? `<div style="padding:10px 14px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); font-size:13px;">${remarks}</div>` : ''}
+    ${remarks ? `<div style="padding:10px 14px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); font-size:13px;">${escapeHtml(remarks)}</div>` : ''}
     <button class="btn-ghost" style="margin-top:12px; font-size:12px;" onclick="goBackToAudit()">← Edit audit data</button>
   `;
 }
@@ -1101,8 +1117,8 @@ function handleSubmit() {
   if (currentUserRole === 'guest') return;
 
   const tw = parseFloat(document.getElementById('tw-input').value);
-  if (!currentLoanId) { alert('No loan loaded.'); return; }
-  if (isNaN(tw) || tw <= 0) { alert('Please enter a valid tear weight before submitting.'); return; }
+  if (!currentLoanId) { showErrorPopup('No loan loaded', 'Please look up a loan before submitting an audit.'); return; }
+  if (isNaN(tw) || tw <= 0) { showErrorPopup('Tare weight required', 'Please enter a valid tare weight before submitting.'); return; }
 
   // Tare weight (the whole sealed packet, gold + packaging) can physically
   // never weigh less than the gold alone. gwAudit values are already totals
@@ -1451,12 +1467,12 @@ function submitTW(loanId) {
 
   const newTW = twCurrentValues[loanId];
   if (!newTW || isNaN(newTW) || newTW <= 0) {
-    alert('Please enter a tare weight value before saving.');
+    showErrorPopup('Tare weight required', 'Please enter a tare weight value before saving.');
     return;
   }
 
   const audit = auditStore.find(a => a.loanId === loanId);
-  if (!audit || !audit.id) { alert('Loan not found.'); return; }
+  if (!audit || !audit.id) { showErrorPopup('Loan not found', 'This loan could not be found in the audit records.'); return; }
 
   const btn = document.querySelector(`tr[data-lid="${loanId}"] button`);
   if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
@@ -1691,7 +1707,7 @@ function populateReportFilters() {
 
 async function generateTWReport() {
   const data = window._lastFilteredTW || [];
-  if (!data.length) { alert('No tare weight records to export.'); return; }
+  if (!data.length) { showErrorPopup('Nothing to export', 'No tare weight records match the current filter.'); return; }
 
   function val(v) { return (v == null || v === 'null') ? '' : String(v); }
 
@@ -1769,7 +1785,7 @@ async function generateTWReport() {
 
   if (btn) { btn.disabled = false; btn.innerHTML = originalBtnHTML; }
   if (gwFetchFailed) {
-    alert('Report downloaded, but gross weight couldn\'t be fetched for some loans (check console for details) — those rows will show a blank Gross Weight value.');
+    showErrorPopup('Report downloaded, with a note', 'Gross weight couldn\'t be fetched for some loans (check console for details) — those rows will show a blank Gross Weight value.');
   }
 }
 
@@ -1779,7 +1795,7 @@ async function generateTWReport() {
 // ────────────────────────────
 function generateReport() {
   const data = window._lastFilteredAudits || [];
-  if (!data.length) { alert('No audits to export.'); return; }
+  if (!data.length) { showErrorPopup('Nothing to export', 'No audits match the current filter.'); return; }
 
   function fmtDate(d) {
     if (!d) return '';
@@ -2228,7 +2244,7 @@ async function resetUserPassword(email) {
 
   const newPwd = prompt(`Enter new password for ${email} (min 6 characters):`);
   if (!newPwd) return;
-  if (newPwd.length < 6) { alert('Password must be at least 6 characters.'); return; }
+  if (newPwd.length < 6) { showErrorPopup('Password too short', 'Password must be at least 6 characters.'); return; }
   try {
     const callerToken = await auth.currentUser.getIdToken();
     const res = await fetch('/api/reset-password', {
@@ -2321,10 +2337,10 @@ function openModal(docId) {
       <div><div class="mfl">Tear weight</div><div class="mfv">${a.tw != null ? Number(a.tw).toFixed(2) + ' g' : '—'}</div></div>
       <div><div class="mfl">Excess funding</div><div class="mfv" style="color:${a.excessFunding === 'Yes' ? 'var(--danger)' : 'inherit'}">${a.excessFunding}${a.excessAmount ? ' — ₹' + Number(a.excessAmount).toLocaleString('en-IN') : ''}</div></div>
       <div><div class="mfl">Spurious</div><div class="mfv" style="color:${a.spurious === 'Yes' ? 'var(--danger)' : 'inherit'}">${a.spurious}</div></div>
-      <div><div class="mfl">New / old packet ID</div><div class="mfv">${a.newPacketId || '—'}</div></div>
+      <div><div class="mfl">New / old packet ID</div><div class="mfv">${escapeHtml(a.newPacketId) || '—'}</div></div>
     </div>
     ${ornamentHTML}
-    ${a.remarks ? `<div class="modal-section">Remarks</div><div class="remarks-block">${a.remarks}</div>` : ''}
+    ${a.remarks ? `<div class="modal-section">Remarks</div><div class="remarks-block">${escapeHtml(a.remarks)}</div>` : ''}
   `;
   document.getElementById('audit-modal').classList.remove('hidden');
 }
