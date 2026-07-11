@@ -191,6 +191,7 @@ input[type="date"].fi::-webkit-calendar-picker-indicator:hover {
 .stat-chip { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); }
 .stat-chip.success { background: var(--success-bg); border-color: var(--success-border); color: var(--success); }
 .stat-chip.danger { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger); }
+.stat-chip.gold { background: var(--gold-light); border-color: var(--gold-border); color: var(--gold); font-weight: 600; }
 
 /* ── Summary cards ── */
 .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }

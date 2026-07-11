@@ -1305,8 +1305,20 @@ function renderTWTable(search = '', filter = twFilter) {
 
   const pendingCount = loans.filter(a => getLoanStatus(a.loanId) === 'pending').length;
 
+  // Progress counter — deliberately NOT a manual "start/end session" toggle.
+  // completedToday/remainingToday are derived fresh from twUpdatedAt every
+  // single render, straight from Firestore-backed data (loaded via
+  // loadAudits() on page load) — not from any in-memory "session" flag. That
+  // means a refresh, a dropped connection, or a break mid-day changes
+  // nothing: reopening the page recomputes the exact same true numbers,
+  // because nothing was ever being "remembered" client-side to lose.
+  const completedToday = loans.filter(a => a.twUpdatedAt && a.twUpdatedAt.slice(0, 10) === todayStr).length;
+  const remainingToday = loans.length - completedToday;
+
   document.getElementById('tw-stat-row').innerHTML = `
     <div class="stat-chip">${loans.length} loan${loans.length !== 1 ? 's' : ''}</div>
+    <div class="stat-chip gold">${remainingToday} remaining today</div>
+    <div class="stat-chip success">${completedToday} completed today</div>
     <div class="stat-chip" style="background:var(--warning-bg); border-color:var(--warning-border); color:var(--warning);">${pendingCount} pending</div>
     <div class="stat-chip success">${matched} matched</div>
     <div class="stat-chip danger">${flagged} flagged</div>
