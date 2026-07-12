@@ -144,7 +144,10 @@ function loadActiveLoans() {
         'The list of active loans failed to load from Metabase. This may mean the Metabase session has expired. Try refreshing — if it keeps happening, flag it to Vivek.',
         err.message
       );
-      return new Set();
+      // Re-throw rather than returning an empty Set — see loadAudits() for
+      // why: callers need to actually see this failure to show a proper
+      // retry state instead of silently treating "0 active loans" as real.
+      throw err;
     });
 }
 
@@ -330,7 +333,13 @@ function loadAudits() {
         'Audit records failed to load from Firestore. Check your internet connection and refresh the page.',
         err.message
       );
-      return [];
+      // Re-throw (rather than returning []) so callers relying on Promise.all
+      // to detect this failure — and show a persistent retry option instead
+      // of silently rendering "0 audits" as if that were really the data —
+      // actually see it. auditStore is deliberately left untouched here: on
+      // a transient failure, keeping the last-known-good data on screen is
+      // more honest than replacing it with an empty result.
+      throw err;
     });
 }
 
@@ -413,7 +422,7 @@ function runSync() {
             renderTWTable();
             populateBranchFilter();
           }
-        });
+        }).catch(() => {}); // loadAudits() already showed its own toast; sync itself succeeded regardless
       }
     })
     .catch(err => {
@@ -469,18 +478,15 @@ function showLoadingState(tbodyId, cols, msg) {
     `<tr class="empty-row"><td colspan="${cols}">${msg}</td></tr>`;
 }
 
-// Used when a section's data fails to load (e.g. a Firestore hiccup). Two
-// things happen: an immediate toast (auto-dismisses after 10s, easy to miss
-// if you looked away), AND a persistent retry row replacing the stuck
-// loading skeleton — so even if the toast is missed, nobody is left staring
-// at a spinner that will never resolve with no way to try again.
+// Used when a section's data fails to load. loadAudits()/loadActiveLoans()
+// already show their own specific toast (Firestore vs Metabase) before
+// rejecting — this does NOT show a second, generic one on top of that. Its
+// job is the part that was actually missing: a persistent retry row
+// replacing the stuck loading skeleton, so even someone who missed the
+// toast (it auto-dismisses after 10s) isn't left staring at "0 results"
+// that looks like real data but is actually a silent failure.
 function showSectionLoadError(err, tbodyId, cols, retryFnName) {
   console.error(`Failed to load data for #${tbodyId}:`, err);
-  showErrorPopup(
-    'Couldn\'t load data',
-    'Something went wrong loading data from the database. Check your connection and try again.',
-    err?.message
-  );
   const tbody = document.getElementById(tbodyId);
   if (tbody) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="${cols}" style="text-align:center; padding:40px 20px;">
@@ -1956,12 +1962,13 @@ function loadInitialAppData() {
       loadUnauditedLoans();
     })
     .catch(err => {
+      // loadAudits()/loadActiveLoans() already showed their own specific
+      // toast before rejecting — no second, generic one needed here. Just
+      // log it; there's no single retry-button target for a full initial
+      // load failure the way there is for one section's table, so the
+      // specific toasts' own "try refreshing" guidance is the real recovery
+      // path here.
       console.error('Failed to load initial app data:', err);
-      showErrorPopup(
-        'Couldn\'t load app data',
-        'Something went wrong loading data from the database. Please refresh the page to try again — if this keeps happening, check your internet connection or let Vivek/Rijin know.',
-        err.message
-      );
     });
 }
 
