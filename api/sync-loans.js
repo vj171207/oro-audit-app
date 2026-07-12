@@ -23,6 +23,13 @@ async function getFirebaseToken() {
     }
   );
   const data = await res.json();
+  if (!data.idToken) {
+    // Previously this returned undefined silently on a failed login, which
+    // meant every downstream Firestore call would fail too — but with a
+    // confusing generic error, not a clear "the login itself failed"
+    // message. This matches the same check every other file already has.
+    throw new Error('Firebase auth failed: ' + JSON.stringify(data));
+  }
   return data.idToken;
 }
 
