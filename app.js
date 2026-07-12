@@ -435,12 +435,10 @@ function switchSection(id, btn) {
     loadUnauditedLoans();
   }
   if (id === 'tare-weight') {
-    showLoadingState('tw-tbody', 10, 'Loading from Firestore...');
-    Promise.all([loadAudits(), loadActiveLoans()]).then(() => { renderTWTable(); populateBranchFilter(); });
+    loadTareWeightSection();
   }
   if (id === 'all-audits') {
-    showLoadingState('reports-tbody', 8, 'Loading from Firestore...');
-    Promise.all([loadAudits(), loadActiveLoans()]).then(() => { renderAllAudits(); populateReportFilters(); });
+    loadAllAuditsSection();
   }
   if (id === 'settings') {
     document.getElementById('settings-locked').style.display = 'block';
@@ -450,9 +448,46 @@ function switchSection(id, btn) {
   }
 }
 
+// Named + exported to the global scope (not nested) specifically so the
+// Retry button built by showSectionLoadError can call it back by name.
+function loadTareWeightSection() {
+  showLoadingState('tw-tbody', 10, 'Loading from Firestore...');
+  Promise.all([loadAudits(), loadActiveLoans()])
+    .then(() => { renderTWTable(); populateBranchFilter(); })
+    .catch(err => showSectionLoadError(err, 'tw-tbody', 10, 'loadTareWeightSection'));
+}
+
+function loadAllAuditsSection() {
+  showLoadingState('reports-tbody', 8, 'Loading from Firestore...');
+  Promise.all([loadAudits(), loadActiveLoans()])
+    .then(() => { renderAllAudits(); populateReportFilters(); })
+    .catch(err => showSectionLoadError(err, 'reports-tbody', 8, 'loadAllAuditsSection'));
+}
+
 function showLoadingState(tbodyId, cols, msg) {
   document.getElementById(tbodyId).innerHTML =
     `<tr class="empty-row"><td colspan="${cols}">${msg}</td></tr>`;
+}
+
+// Used when a section's data fails to load (e.g. a Firestore hiccup). Two
+// things happen: an immediate toast (auto-dismisses after 10s, easy to miss
+// if you looked away), AND a persistent retry row replacing the stuck
+// loading skeleton — so even if the toast is missed, nobody is left staring
+// at a spinner that will never resolve with no way to try again.
+function showSectionLoadError(err, tbodyId, cols, retryFnName) {
+  console.error(`Failed to load data for #${tbodyId}:`, err);
+  showErrorPopup(
+    'Couldn\'t load data',
+    'Something went wrong loading data from the database. Check your connection and try again.',
+    err?.message
+  );
+  const tbody = document.getElementById(tbodyId);
+  if (tbody) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${cols}" style="text-align:center; padding:40px 20px;">
+      <div style="color:var(--danger); margin-bottom:12px; font-size:13px;">⚠ Couldn't load this data — check your connection.</div>
+      <button class="btn-ghost" onclick="${retryFnName}()">↻ Retry</button>
+    </td></tr>`;
+  }
 }
 
 // ────────────────────────────
@@ -1907,6 +1942,29 @@ function handleLogin() {
     });
 }
 
+// Shared by both onLoginSuccess and handleGuestLogin — was previously
+// duplicated identically in both places with no error handling at all. If
+// this fails, there's no single "retry button" target the way there is for
+// Tare Weight/All Audits (multiple sections could be affected at once), so
+// the most reliable recovery is a straightforward page refresh — Firebase
+// auth persists across it, so the person doesn't need to log in again.
+function loadInitialAppData() {
+  return Promise.all([loadAudits(), loadActiveLoans(), loadSettings()])
+    .then(() => {
+      if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
+      if (document.getElementById('tare-weight').classList.contains('active')) renderTWTable();
+      loadUnauditedLoans();
+    })
+    .catch(err => {
+      console.error('Failed to load initial app data:', err);
+      showErrorPopup(
+        'Couldn\'t load app data',
+        'Something went wrong loading data from the database. Please refresh the page to try again — if this keeps happening, check your internet connection or let Vivek/Rijin know.',
+        err.message
+      );
+    });
+}
+
 function onLoginSuccess() {
   initDarkMode();
   // A real, authenticated login is happening — make sure the guest view-only
@@ -1930,11 +1988,7 @@ function onLoginSuccess() {
 
   // Load app data
   initAuditDate();
-  Promise.all([loadAudits(), loadActiveLoans(), loadSettings()]).then(() => {
-    if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
-    if (document.getElementById('tare-weight').classList.contains('active')) renderTWTable();
-    loadUnauditedLoans();
-  });
+  loadInitialAppData();
 }
 
 
@@ -1976,11 +2030,7 @@ async function handleGuestLogin() {
 
   // Load app data (read-only)
   initAuditDate();
-  Promise.all([loadAudits(), loadActiveLoans(), loadSettings()]).then(() => {
-    if (document.getElementById('all-audits').classList.contains('active')) renderAllAudits();
-    if (document.getElementById('tare-weight').classList.contains('active')) renderTWTable();
-    loadUnauditedLoans();
-  });
+  loadInitialAppData();
 }
 
 function handleSignOut() {
