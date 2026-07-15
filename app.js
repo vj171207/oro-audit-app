@@ -2137,10 +2137,17 @@ async function removeUser(docId, email) {
 
   if (!confirm(`Remove ${email}? They will lose app access.`)) return;
   try {
-    await db.collection('users').doc(docId).delete();
+    const callerToken = await auth.currentUser.getIdToken();
+    const res = await fetch('/api/remove-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ docId, callerToken })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
     loadUsersList();
   } catch(err) {
-    showErrorPopup('Couldn\'t remove user', `Failed to remove ${email}. Check your connection and try again.`, err.message);
+    showErrorPopup('Couldn\'t remove user', `Failed to remove ${email}.`, err.message);
   }
 }
 
