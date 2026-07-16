@@ -473,13 +473,47 @@ function switchSection(id, btn) {
   }
 }
 
+// Firestore's `in` operator accepts at most 30 values per query — this
+// splits the active loan ID list into batches that size and runs them,
+// merging every result into the shared auditStore by document ID (updating
+// existing entries, adding new ones). Nothing is ever removed from
+// auditStore here, and no other feature reading from it (All Audits, the
+// re-audit reference lookup, branch/auditor dropdowns) is affected — they
+// keep seeing exactly the same shared data, just kept fresh for whichever
+// loans are currently active.
+const FIRESTORE_IN_QUERY_LIMIT = 30;
+
+async function loadActiveTareWeightAudits() {
+  const loanIds = [...activeLoanIds];
+  if (!loanIds.length) return;
+
+  for (let i = 0; i < loanIds.length; i += FIRESTORE_IN_QUERY_LIMIT) {
+    const batch = loanIds.slice(i, i + FIRESTORE_IN_QUERY_LIMIT);
+    const snapshot = await db.collection(COLLECTION).where('loanId', 'in', batch).get();
+    snapshot.docs.forEach(doc => {
+      const fresh = { id: doc.id, ...doc.data() };
+      const idx = auditStore.findIndex(a => a.id === fresh.id);
+      if (idx >= 0) auditStore[idx] = fresh;
+      else auditStore.unshift(fresh);
+    });
+  }
+}
+
 // Named + exported to the global scope (not nested) specifically so the
 // Retry button built by showSectionLoadError can call it back by name.
+//
+// This deliberately does NOT call the full loadAudits() (which downloads
+// every audit ever written) — Tare Weight only ever displays currently
+// active loans (~150 today), so re-downloading the entire, ever-growing
+// history on every single visit to this tab was pure waste. loadActiveLoans()
+// must resolve first since it's what determines which loan IDs the targeted
+// query below actually needs to ask for.
 function loadTareWeightSection() {
-  showLoadingState('tw-tbody', 10, 'Loading from Firestore...');
-  Promise.all([loadAudits(), loadActiveLoans()])
+  showLoadingState('tw-tbody', 11, 'Loading from Firestore...');
+  loadActiveLoans()
+    .then(() => loadActiveTareWeightAudits())
     .then(() => { renderTWTable(); populateBranchFilter(); })
-    .catch(err => showSectionLoadError(err, 'tw-tbody', 10, 'loadTareWeightSection'));
+    .catch(err => showSectionLoadError(err, 'tw-tbody', 11, 'loadTareWeightSection'));
 }
 
 function loadAllAuditsSection() {
