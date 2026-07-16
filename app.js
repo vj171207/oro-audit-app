@@ -126,6 +126,22 @@ let currentLoanBookingDate = null; // raw ISO date, kept separate from the
                                     // submission always stores a clean,
                                     // sortable ISO value, not a display string
 
+// ── All Audits table pagination ──
+// The summary cards (Total/Excess/Spurious/Active) need every audit loaded
+// anyway, to correctly deduplicate by loan (a loan can have more than one
+// audit doc — only the most recent should count). Since that full data is
+// already sitting in memory regardless, "pagination" here is specifically
+// about how many rows get drawn into the DOM at once, not about reducing
+// what's fetched — rendering thousands of table rows is genuinely slow and
+// memory-heavy in a browser, independent of how fast the data arrived.
+// Set ALL_AUDITS_PAGINATION_ENABLED to false to revert to rendering every
+// matching row at once, exactly as the app behaved before this was added —
+// a single, deliberate switch rather than something that could silently
+// rot from disuse.
+const ALL_AUDITS_PAGINATION_ENABLED = true;
+const ALL_AUDITS_PAGE_SIZE = 100;
+let allAuditsRenderedCount = ALL_AUDITS_PAGE_SIZE;
+
 // ── Active loans cache (fetched from Metabase on load) ──
 let activeLoanIds = new Set();
 
@@ -467,6 +483,7 @@ function loadTareWeightSection() {
 }
 
 function loadAllAuditsSection() {
+  allAuditsRenderedCount = ALL_AUDITS_PAGE_SIZE;
   showLoadingState('reports-tbody', 8, 'Loading from Firestore...');
   Promise.all([loadAudits(), loadActiveLoans()])
     .then(() => { renderAllAudits(); populateReportFilters(); })
@@ -1681,7 +1698,9 @@ function renderAllAudits(search = '') {
     return;
   }
 
-  tbody.innerHTML = filtered.map(a => {
+  const visibleRows = ALL_AUDITS_PAGINATION_ENABLED ? filtered.slice(0, allAuditsRenderedCount) : filtered;
+
+  tbody.innerHTML = visibleRows.map(a => {
     const excessBadge = a.excessFunding === 'Yes'
       ? `<span class="badge badge-excess">Yes${a.excessAmount ? ' — ₹' + Number(a.excessAmount).toLocaleString('en-IN') : ''}</span>`
       : `<span style="color:var(--success); font-weight:500;">No</span>`;
@@ -1707,6 +1726,25 @@ function renderAllAudits(search = '') {
         <td>${loanStatusBadge}</td>
       </tr>`;
   }).join('');
+
+  if (ALL_AUDITS_PAGINATION_ENABLED && filtered.length > visibleRows.length) {
+    tbody.innerHTML += `
+      <tr class="empty-row">
+        <td colspan="9" style="text-align:center; padding:16px;">
+          <button class="btn-ghost" onclick="loadMoreAllAudits()">
+            ↓ Load 100 more (showing ${visibleRows.length} of ${filtered.length})
+          </button>
+        </td>
+      </tr>`;
+  }
+}
+
+// Reveals the next batch of already-loaded, already-filtered rows — no new
+// network request, since renderAllAudits() already has everything it needs
+// in memory (see the pagination note near allAuditsRenderedCount above).
+function loadMoreAllAudits() {
+  allAuditsRenderedCount += ALL_AUDITS_PAGE_SIZE;
+  renderAllAudits();
 }
 
 // ── Quick range dropdown (All Audits date filter) ──
@@ -1739,6 +1777,7 @@ function applyQuickRange(months) {
 }
 
 function applyReportFilters() {
+  allAuditsRenderedCount = ALL_AUDITS_PAGE_SIZE;
   renderAllAudits();
 }
 
@@ -1746,6 +1785,7 @@ function clearReportFilters() {
   ['rf-loanid'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['rf-branch','rf-auditor','rf-deviation','rf-loanstatus'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['rf-date-from','rf-date-to'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  allAuditsRenderedCount = ALL_AUDITS_PAGE_SIZE;
   renderAllAudits();
 }
 
