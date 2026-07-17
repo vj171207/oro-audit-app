@@ -21,9 +21,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'from and to must be valid dates in YYYY-MM-DD format' });
   }
 
-  const METABASE_SESSION = process.env.METABASE_SESSION_TOKEN;
-  if (!METABASE_SESSION) {
-    return res.status(500).json({ error: 'Metabase session token not configured' });
+  const METABASE_API_KEY = process.env.METABASE_API_KEY;
+  if (!METABASE_API_KEY) {
+    return res.status(500).json({ error: 'Metabase API key not configured' });
   }
 
   const query = `
@@ -51,8 +51,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Metabase-Session': METABASE_SESSION,
-        'Cookie': `metabase.SESSION=${METABASE_SESSION}`
+        'x-api-key': METABASE_API_KEY
       },
       body: JSON.stringify({
         database: METABASE_DB_ID,

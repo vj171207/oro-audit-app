@@ -45,7 +45,7 @@ export default async function handler(req, res) {
   // alphanumeric or a dash before it goes anywhere near the SQL string.
   const safeIds = [...new Set(loanIds.map(id => String(id).replace(/[^A-Za-z0-9\-]/g, '')))].filter(Boolean);
 
-  const METABASE_SESSION = process.env.METABASE_SESSION_TOKEN;
+  const METABASE_API_KEY = process.env.METABASE_API_KEY;
   const gwByLoanId = {};
   const failedBatches = [];
 
@@ -69,8 +69,7 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Metabase-Session': METABASE_SESSION,
-          'Cookie': `metabase.SESSION=${METABASE_SESSION}`
+          'x-api-key': METABASE_API_KEY
         },
         body: JSON.stringify({
           database: METABASE_DB_ID,

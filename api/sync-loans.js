@@ -69,7 +69,7 @@ async function getExistingLoanIds(token) {
 }
 
 async function getActiveLoansFromMetabase() {
-  const METABASE_SESSION = process.env.METABASE_SESSION_TOKEN;
+  const METABASE_API_KEY = process.env.METABASE_API_KEY;
 
   const query = `
     SELECT DISTINCT
@@ -93,8 +93,7 @@ async function getActiveLoansFromMetabase() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Metabase-Session': METABASE_SESSION,
-      'Cookie': `metabase.SESSION=${METABASE_SESSION}`
+      'x-api-key': METABASE_API_KEY
     },
     body: JSON.stringify({
       database: METABASE_DB_ID,

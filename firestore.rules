@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // AUDITS — reads now require a real session (a logged-in user OR an
+    // anonymous guest session — both count as "authenticated" to Firebase).
+    // No session at all = no access. Writes still require a verified
+    // manager/auditor role.
+    match /audits/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['manager', 'auditor'];
+    }
+    // APP SETTINGS — same pattern: any real session (including anonymous
+    // guest) can read, only a verified manager can write.
+    match /app_settings/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
+    }
+    // USERS — every signed-in user can read their OWN document (this is how
+    // the app finds out its own role at login — without this, no auditor
+    // account can ever log in, since determining "am I a manager" first
+    // requires reading a record that used to be manager-only to read at
+    // all). A manager can additionally read anyone's record, needed for the
+    // Settings > User management list.
+    // Writes are restricted to the app's own backend sync/admin account only —
+    // this is the account create-user.js, reset-password.js, remove-user.js,
+    // and sync-loans.js authenticate as. No one else, including managers
+    // using the app directly, writes to this collection — it all goes
+    // through those secured API routes. This same rule already covers
+    // deletes performed by remove-user.js, since it authenticates as this
+    // same account — no separate delete permission was needed when that
+    // endpoint was added.
+    match /users/{doc} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == doc ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager');
+      allow write: if request.auth != null &&
+        request.auth.token.email == 'sync@oroaudit.com';
+    }
+  }
+}
