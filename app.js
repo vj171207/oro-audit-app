@@ -96,21 +96,10 @@ window.addEventListener('unhandledrejection', (event) => {
   });
 });
 
-// ── Firebase config ──
-const firebaseConfig = {
-  apiKey: "AIzaSyALq2Ss5yq2Kls-J9xB4rr3QSbxiu1cYfM",
-  authDomain: "oro-audit.firebaseapp.com",
-  projectId: "oro-audit",
-  storageBucket: "oro-audit.firebasestorage.app",
-  messagingSenderId: "875163871561",
-  appId: "1:875163871561:web:be80f9291c72cce4029298"
-};
-
-// ── Firebase init (loaded via CDN in index.html) ──
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const COLLECTION = 'audits';
-const auth = firebase.auth();
+// ── Firebase config, init, db, auth: moved to auditDataService.js ──
+// (loaded via <script> tag before this file in index.html, so `db`,
+// `auth`, and `COLLECTION` are still available here as globals, exactly
+// as before — only the location of the init code changed.)
 
 // ── Current user state ──
 let currentUser = null;
@@ -175,7 +164,7 @@ let registeredBranches = []; // Manager-registered branches from Firestore
 
 async function loadSettings() {
   try {
-    const doc = await db.collection('app_settings').doc('config').get();
+    const doc = await getAppSettingsDoc();
     if (doc.exists) {
       const d = doc.data();
       if (d.pendingDays) PENDING_DAYS = d.pendingDays;
@@ -331,46 +320,10 @@ const DEMO_OPS_DATA = {
 };
 
 // ────────────────────────────────────────
-// FIRESTORE — LOAD ALL AUDITS
+// FIRESTORE — LOAD ALL AUDITS / SAVE ONE AUDIT
+// (loadAudits() and saveAudit() are now defined in auditDataService.js,
+// loaded before this file — unchanged behavior, just relocated.)
 // ────────────────────────────────────────
-function loadAudits() {
-  return db.collection(COLLECTION)
-    .orderBy('date', 'desc')
-    .get()
-    .then(snapshot => {
-      auditStore = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-      return auditStore;
-    })
-    .catch(err => {
-      console.error('Firestore load error:', err);
-      showErrorPopup(
-        'Couldn\'t load audit history',
-        'Audit records failed to load from Firestore. Check your internet connection and refresh the page.',
-        err.message
-      );
-      // Re-throw (rather than returning []) so callers relying on Promise.all
-      // to detect this failure — and show a persistent retry option instead
-      // of silently rendering "0 audits" as if that were really the data —
-      // actually see it. auditStore is deliberately left untouched here: on
-      // a transient failure, keeping the last-known-good data on screen is
-      // more honest than replacing it with an empty result.
-      throw err;
-    });
-}
-
-// ────────────────────────────────────────
-// FIRESTORE — SAVE ONE AUDIT
-// ────────────────────────────────────────
-function saveAudit(audit) {
-  return db.collection(COLLECTION)
-    .add(audit)
-    .then(ref => {
-      audit.id = ref.id;
-      auditStore.unshift(audit);
-      return audit;
-    });
-}
 
 // ────────────────────────────
 // MANUAL SYNC
@@ -489,7 +442,7 @@ async function loadActiveTareWeightAudits() {
 
   for (let i = 0; i < loanIds.length; i += FIRESTORE_IN_QUERY_LIMIT) {
     const batch = loanIds.slice(i, i + FIRESTORE_IN_QUERY_LIMIT);
-    const snapshot = await db.collection(COLLECTION).where('loanId', 'in', batch).get();
+    const snapshot = await queryAuditsByLoanIdBatch(batch);
     snapshot.docs.forEach(doc => {
       const fresh = { id: doc.id, ...doc.data() };
       const idx = auditStore.findIndex(a => a.id === fresh.id);
@@ -1258,7 +1211,7 @@ function handleSubmit() {
       renderAllAudits();
       // Delete the metabase-sync placeholder for this loan (no longer needed)
       const pendingDocId = currentLoanId + '_pending';
-      db.collection('audits').doc(pendingDocId).delete()
+      deleteAuditDoc(pendingDocId)
         .then(() => console.log('Cleaned up placeholder:', pendingDocId))
         .catch(() => {}); // Silent — placeholder may not exist, that's fine
     })
@@ -1585,8 +1538,7 @@ function submitTW(loanId) {
   const recheckedBy = currentUser
     ? currentUser.email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase())
     : (document.getElementById('auditor-name-display')?.textContent || 'Auditor');
-  db.collection('audits').doc(audit.id)
-    .update({ tw: newTW, twUpdatedAt: updatedAt, twRecheckedBy: recheckedBy })
+  updateAuditDoc(audit.id, { tw: newTW, twUpdatedAt: updatedAt, twRecheckedBy: recheckedBy })
     .then(() => {
       audit.tw = newTW;
       audit.twUpdatedAt = updatedAt;
@@ -2000,7 +1952,7 @@ function handleLogin() {
       // Look up own record by UID (not email) — this is what lets the
       // Firestore rule allow "read your own document" without opening the
       // whole users collection to every logged-in account.
-      return db.collection('users').doc(currentUser.uid).get();
+      return getUserDoc(currentUser.uid);
     })
     .then(doc => {
       if (!doc.exists) {
@@ -2141,7 +2093,7 @@ async function loadUsersList() {
   const listEl = document.getElementById('users-list');
   if (!listEl) return;
   try {
-    const snapshot = await db.collection('users').get();
+    const snapshot = await getAllUsersSnapshot();
     if (snapshot.empty) { listEl.innerHTML = '<div style="font-size:13px; color:var(--text-3);">No users yet.</div>'; return; }
     listEl.innerHTML = snapshot.docs.map(doc => {
       const d = doc.data();
@@ -2277,7 +2229,7 @@ async function addBranch() {
   if (registeredBranches.includes(name)) { statusEl.textContent = '❌ Branch already registered.'; statusEl.style.color = 'var(--danger)'; return; }
   try {
     registeredBranches = [...registeredBranches, name].sort();
-    await db.collection('app_settings').doc('config').set({ branches: registeredBranches }, { merge: true });
+    await mergeAppSettings({ branches: registeredBranches });
     input.value = '';
     renderBranchesList();
     populateBranchFilter();
@@ -2297,7 +2249,7 @@ async function removeBranch(name) {
   const statusEl = document.getElementById('branch-mgmt-status');
   try {
     registeredBranches = registeredBranches.filter(b => b !== name);
-    await db.collection('app_settings').doc('config').set({ branches: registeredBranches }, { merge: true });
+    await mergeAppSettings({ branches: registeredBranches });
     renderBranchesList();
     populateBranchFilter();
     populateReportFilters();
@@ -2324,7 +2276,7 @@ function loadSettingsPanel() {
   document.getElementById('info-active-loans').textContent = activeLoanIds.size;
   document.getElementById('info-pending-days').textContent = PENDING_DAYS + ' days';
   document.getElementById('info-tw-threshold').textContent = TW_THRESHOLD + 'g';
-  db.collection('app_settings').doc('config').get().then(doc => {
+  getAppSettingsDocThenable().then(doc => {
     if (doc.exists && doc.data().lastSyncAt) {
       const d = new Date(doc.data().lastSyncAt);
       document.getElementById('info-last-sync').textContent = d.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'});
@@ -2345,7 +2297,7 @@ async function saveAuditSettings() {
   if (isNaN(pendingDays) || pendingDays < 1) { statusEl.textContent = '❌ Invalid pending days.'; statusEl.style.color = 'var(--danger)'; return; }
   if (isNaN(twThreshold) || twThreshold < 0.1) { statusEl.textContent = '❌ Invalid threshold.'; statusEl.style.color = 'var(--danger)'; return; }
   try {
-    await db.collection('app_settings').doc('config').set({ pendingDays, twThreshold, settingsPassword: SETTINGS_PASSWORD, updatedAt: new Date().toISOString() }, { merge: true });
+    await mergeAppSettings({ pendingDays, twThreshold, settingsPassword: SETTINGS_PASSWORD, updatedAt: new Date().toISOString() });
     PENDING_DAYS = pendingDays;
     TW_THRESHOLD = twThreshold;
     document.getElementById('info-pending-days').textContent = PENDING_DAYS + ' days';
