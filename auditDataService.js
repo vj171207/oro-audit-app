@@ -42,8 +42,14 @@ const auth = firebase.auth();
 // ────────────────────────────────────────
 
 // Replaces: db.collection('app_settings').doc('config').get()  [was line 178]
+// Returns plain data (or null if no settings doc exists yet) — NOT a raw
+// Firestore DocumentSnapshot. Unwrapping happens here, inside the data
+// layer, so app.js never touches Firestore-specific shapes like
+// `.exists` / `.data()` directly. This is what makes a future backend
+// swap possible without touching app.js.
 function getAppSettingsDoc() {
-  return db.collection('app_settings').doc('config').get();
+  return db.collection('app_settings').doc('config').get()
+    .then(doc => doc.exists ? doc.data() : null);
 }
 
 // Replaces: db.collection('app_settings').doc('config').set(data, {merge:true})
@@ -57,8 +63,11 @@ function mergeAppSettings(data) {
 // Kept as a separate function (rather than reusing getAppSettingsDoc) because
 // the original call site used .then()/.catch() directly inline rather than
 // async/await — preserved here as-is so the calling code doesn't need to change.
+// Returns plain data (or null), same as getAppSettingsDoc — no raw
+// Firestore snapshot exposed to app.js.
 function getAppSettingsDocThenable() {
-  return db.collection('app_settings').doc('config').get();
+  return db.collection('app_settings').doc('config').get()
+    .then(doc => doc.exists ? doc.data() : null);
 }
 
 // ────────────────────────────────────────
@@ -106,8 +115,12 @@ function saveAudit(audit) {
 }
 
 // Replaces: db.collection(COLLECTION).where('loanId', 'in', batch).get()  [was line 492]
+// Returns a plain array of audit objects (each { id, ...fields }) — NOT a
+// raw Firestore QuerySnapshot. app.js no longer needs to know about
+// `.docs` or call `.data()` itself.
 function queryAuditsByLoanIdBatch(batch) {
-  return db.collection(COLLECTION).where('loanId', 'in', batch).get();
+  return db.collection(COLLECTION).where('loanId', 'in', batch).get()
+    .then(snapshot => snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 }
 
 // Replaces: db.collection('audits').doc(pendingDocId).delete()  [was line 1261]
@@ -125,11 +138,17 @@ function updateAuditDoc(docId, updates) {
 // ────────────────────────────────────────
 
 // Replaces: db.collection('users').doc(currentUser.uid).get()  [was line 2003]
+// Returns plain data (or null if no user doc exists) — NOT a raw
+// Firestore DocumentSnapshot.
 function getUserDoc(uid) {
-  return db.collection('users').doc(uid).get();
+  return db.collection('users').doc(uid).get()
+    .then(doc => doc.exists ? { id: doc.id, ...doc.data() } : null);
 }
 
 // Replaces: db.collection('users').get()  [was line 2144]
+// Returns a plain array of user objects (each { id, ...fields }) — NOT a
+// raw Firestore QuerySnapshot. app.js no longer needs `.docs` or `.empty`.
 function getAllUsersSnapshot() {
-  return db.collection('users').get();
+  return db.collection('users').get()
+    .then(snapshot => snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 }

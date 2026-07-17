@@ -164,9 +164,8 @@ let registeredBranches = []; // Manager-registered branches from Firestore
 
 async function loadSettings() {
   try {
-    const doc = await getAppSettingsDoc();
-    if (doc.exists) {
-      const d = doc.data();
+    const d = await getAppSettingsDoc();
+    if (d) {
       if (d.pendingDays) PENDING_DAYS = d.pendingDays;
       if (d.twThreshold) TW_THRESHOLD = d.twThreshold;
       if (d.settingsPassword) SETTINGS_PASSWORD = d.settingsPassword;
@@ -442,9 +441,8 @@ async function loadActiveTareWeightAudits() {
 
   for (let i = 0; i < loanIds.length; i += FIRESTORE_IN_QUERY_LIMIT) {
     const batch = loanIds.slice(i, i + FIRESTORE_IN_QUERY_LIMIT);
-    const snapshot = await queryAuditsByLoanIdBatch(batch);
-    snapshot.docs.forEach(doc => {
-      const fresh = { id: doc.id, ...doc.data() };
+    const freshAudits = await queryAuditsByLoanIdBatch(batch);
+    freshAudits.forEach(fresh => {
       const idx = auditStore.findIndex(a => a.id === fresh.id);
       if (idx >= 0) auditStore[idx] = fresh;
       else auditStore.unshift(fresh);
@@ -1954,13 +1952,12 @@ function handleLogin() {
       // whole users collection to every logged-in account.
       return getUserDoc(currentUser.uid);
     })
-    .then(doc => {
-      if (!doc.exists) {
+    .then(userData => {
+      if (!userData) {
         auth.signOut();
         throw new Error('Access denied. Your account is not authorised for this app.');
       }
-      const data = doc.data();
-      currentUserRole = data.role || 'auditor';
+      currentUserRole = userData.role || 'auditor';
       onLoginSuccess();
     })
     .catch(err => {
@@ -2093,10 +2090,9 @@ async function loadUsersList() {
   const listEl = document.getElementById('users-list');
   if (!listEl) return;
   try {
-    const snapshot = await getAllUsersSnapshot();
-    if (snapshot.empty) { listEl.innerHTML = '<div style="font-size:13px; color:var(--text-3);">No users yet.</div>'; return; }
-    listEl.innerHTML = snapshot.docs.map(doc => {
-      const d = doc.data();
+    const users = await getAllUsersSnapshot();
+    if (!users.length) { listEl.innerHTML = '<div style="font-size:13px; color:var(--text-3);">No users yet.</div>'; return; }
+    listEl.innerHTML = users.map(d => {
       return `<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:8px;">
         <div>
           <div style="font-size:13px; font-weight:500;">${d.email}</div>
@@ -2105,7 +2101,7 @@ async function loadUsersList() {
         ${d.uid !== currentUser?.uid
           ? `<div style="display:flex; gap:6px;">
               <button class="btn-ghost" onclick="resetUserPassword('${d.email}')" style="height:28px; font-size:12px;">Reset pwd</button>
-              <button class="btn-ghost" onclick="removeUser('${doc.id}', '${d.email}')" style="height:28px; font-size:12px; color:var(--danger); border-color:var(--danger);">Remove</button>
+              <button class="btn-ghost" onclick="removeUser('${d.id}', '${d.email}')" style="height:28px; font-size:12px; color:var(--danger); border-color:var(--danger);">Remove</button>
              </div>`
           : '<span style="font-size:11px; color:var(--text-3);">You</span>'}
       </div>`;
@@ -2276,10 +2272,10 @@ function loadSettingsPanel() {
   document.getElementById('info-active-loans').textContent = activeLoanIds.size;
   document.getElementById('info-pending-days').textContent = PENDING_DAYS + ' days';
   document.getElementById('info-tw-threshold').textContent = TW_THRESHOLD + 'g';
-  getAppSettingsDocThenable().then(doc => {
-    if (doc.exists && doc.data().lastSyncAt) {
-      const d = new Date(doc.data().lastSyncAt);
-      document.getElementById('info-last-sync').textContent = d.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'});
+  getAppSettingsDocThenable().then(d => {
+    if (d && d.lastSyncAt) {
+      const dt = new Date(d.lastSyncAt);
+      document.getElementById('info-last-sync').textContent = dt.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'});
     } else {
       document.getElementById('info-last-sync').textContent = 'No sync on record';
     }
