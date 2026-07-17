@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
   const METABASE_API_KEY = process.env.METABASE_API_KEY;
   if (!METABASE_API_KEY) {
-    return res.status(500).json({ error: 'Metabase API key not configured' });
+    return res.status(500).json({ error: 'Metabase API token not configured' });
   }
 
   // A loan can have TWO gold records per ornament: the original AP

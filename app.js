@@ -157,7 +157,7 @@ function loadActiveLoans() {
       console.error('Failed to load active loans:', err);
       showErrorPopup(
         'Couldn\'t load loan data',
-        'The list of active loans failed to load from Metabase. This may mean the Metabase session has expired. Try refreshing — if it keeps happening, flag it to Vivek.',
+        'The list of active loans failed to load from Metabase. This may mean the Metabase API token is missing or invalid. Try refreshing — if it keeps happening, flag it to Vivek.',
         err.message
       );
       // Re-throw rather than returning an empty Set — see loadAudits() for
@@ -577,7 +577,7 @@ function loadUnauditedLoans() {
         document.getElementById('unaudited-results').style.display = 'block';
         showErrorPopup(
           'Couldn\'t load loan data',
-          'The list of active loans failed to load from Metabase. This may mean the Metabase session has expired. Try refreshing — if it keeps happening, flag it to Vivek.',
+          'The list of active loans failed to load from Metabase. This may mean the Metabase API token is missing or invalid. Try refreshing — if it keeps happening, flag it to Vivek.',
           data.error
         );
         return;
@@ -676,7 +676,7 @@ function browseLoans() {
         hint.style.color = 'var(--danger)';
         showErrorPopup(
           'Couldn\'t load loans',
-          'Failed to fetch loans for this date range from Metabase. This may mean the Metabase session has expired.',
+          'Failed to fetch loans for this date range from Metabase. This may mean the Metabase API token is missing or invalid.',
           data.error
         );
         return;
@@ -772,7 +772,7 @@ function handleFetch() {
         if (data.error !== 'Loan not found') {
           showErrorPopup(
             'Couldn\'t fetch loan data',
-            'The loan lookup failed to reach Metabase. This may mean the Metabase session has expired.',
+            'The loan lookup failed to reach Metabase. This may mean the Metabase API token is missing or invalid.',
             data.error
           );
         }
