@@ -102,7 +102,7 @@ export default async function handler(req, res) {
     const first = rows[0];
     const result = {
       loanNumber: first[0],
-      loanAmount: '₹' + Number(first[1]).toLocaleString('en-IN'),
+      loanAmount: Number(first[1]) || 0,
       loanDate: first[2],
       branch: first[3],
       city: first[4],

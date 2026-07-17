@@ -114,6 +114,10 @@ let currentLoanBookingDate = null; // raw ISO date, kept separate from the
                                     // formatted display text in #f-date so
                                     // submission always stores a clean,
                                     // sortable ISO value, not a display string
+let currentLoanAmount = null; // raw number, kept separate from the
+                               // formatted "₹1,20,000" display text in
+                               // #f-amount so submission always stores a
+                               // clean number, not a currency-formatted string
 
 // ── All Audits table pagination ──
 // The summary cards (Total/Excess/Spurious/Active) need every audit loaded
@@ -311,7 +315,7 @@ function formatDate(dateStr) {
 const DEMO_LOAN_ID = 'DEMO-0000001';
 const DEMO_OPS_DATA = {
   date: '2026-06-23', city: 'Hyderabad', branch: 'Demo Branch',
-  agent: 'Demo Agent', maker: 'Demo Maker', packet: 'PKT-DEMO-001', amount: '₹1,20,000',
+  agent: 'Demo Agent', maker: 'Demo Maker', packet: 'PKT-DEMO-001', amount: 120000,
   ornaments: [
     { type: 'Necklace', count: 1, gw: '24.50', stoneDed: '1.20', karat: 22, nw: '23.30', hallmark: 'Yes' },
     { type: 'Finger Ring', count: 2, gw: '6.80', stoneDed: '0.20', karat: 22, nw: '6.60', hallmark: 'No' },
@@ -736,7 +740,7 @@ function handleFetch() {
         agent: '—',
         maker: '—',
         packet: '—',
-        amount: data.loanAmount || '—',
+        amount: (typeof data.loanAmount === 'number') ? data.loanAmount : null,
         ornaments: (data.ornaments || []).map(o => ({
           type: o.type,
           count: o.count,
@@ -764,6 +768,7 @@ function handleFetch() {
 function populateOpsCard(loanId, data) {
   currentLoanId = loanId;
   currentLoanBookingDate = (data && data.date && data.date !== '—') ? data.date : null;
+  currentLoanAmount = (data && typeof data.amount === 'number') ? data.amount : null;
   document.getElementById('ops-loan-id').textContent = loanId;
   const hint = document.getElementById('lookup-hint');
   if (!data) {
@@ -791,7 +796,8 @@ function setOpsFields(d) {
   document.getElementById('f-agent').textContent = d.agent || '—';
   document.getElementById('f-maker').textContent = d.maker || '—';
   document.getElementById('f-packet').textContent = d.packet || '—';
-  document.getElementById('f-amount').textContent = d.amount || '—';
+  document.getElementById('f-amount').textContent =
+    (typeof d.amount === 'number') ? '₹' + d.amount.toLocaleString('en-IN') : '—';
 }
 
 function renderOrnamentTable(ornaments) {
@@ -1187,7 +1193,7 @@ function handleSubmit() {
     spuriousOrnaments: auditedOrnaments.filter(o => o.spurious === 'Yes').map(o => o.type),
     city: document.getElementById('f-city').textContent,
     branch: document.getElementById('f-branch').textContent,
-    loanAmount: document.getElementById('f-amount').textContent,
+    loanAmount: currentLoanAmount,
     loanBookingDate: currentLoanBookingDate || null,
     remarks: document.getElementById('audit-remarks')?.value || '',
     newPacketId: document.getElementById('loan-packet-id')?.value || '',
@@ -1231,6 +1237,7 @@ function clearForm() {
   // Reset state
   currentLoanId = null;
   currentLoanBookingDate = null;
+  currentLoanAmount = null;
   currentOrnaments = [];
   currentOrnamentIndex = 0;
   auditedOrnaments = [];
@@ -1414,6 +1421,14 @@ function renderTWTable(search = '', filter = twFilter) {
       badge += `<div style="font-size:11px; color:var(--text-3); margin-top:2px;">by ${a.twRecheckedBy}</div>`;
     }
 
+    // _twSubmitted is a transient, client-side-only flag — it is NEVER
+    // written to Firestore (see submitTW below: the updateAuditDoc() call
+    // only persists tw / twUpdatedAt / twRecheckedBy). It exists purely to
+    // disable this row's input and show "✓ Saved" for the rest of the
+    // CURRENT session immediately after a successful save, preventing an
+    // accidental double-submit. It is expected to reset (become undefined)
+    // on page reload by design — twUpdatedAt/twRecheckedBy remain the real,
+    // persistent record of a completed recheck (see the rightmost column).
     const isSubmitted = a._twSubmitted === true;
 
     const loanStatus = getLoanStatus(a.loanId);
