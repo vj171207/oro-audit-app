@@ -121,7 +121,7 @@ Same shape as `active-loans`, minus `fetchedAt`.
 
 ## 5. `POST /api/sync-loans`
 
-**Purpose:** the nightly Vercel cron job. Pulls all active loans from Metabase, adds any not already in Firestore as `metabase-sync` placeholder audit docs. Also updates `app_settings/config` with sync result metadata.
+**Purpose:** manual-trigger sync (no automatic scheduling — the Vercel cron that used to call this nightly has been removed as redundant; every screen that needs to know which loans are unaudited already queries Metabase live). Triggered today only via the "Run sync" button in Settings. Pulls all active loans from Metabase, adds any not already in Firestore as `metabase-sync` placeholder audit docs. Also updates `app_settings/config` with sync result metadata.
 
 **Request:** no body needed. Auth is via header, not body.
 
@@ -145,7 +145,7 @@ Same shape as `active-loans`, minus `fetchedAt`.
 
 **Response `500`:** `{ "error": "<message>" }` — e.g. Firebase auth failure.
 
-**Auth:** `Authorization: Bearer ${CRON_SECRET}` header — this is a shared-secret check, not a user auth check. **Known open question for migration:** if the job queue for this becomes Redis/Bull-based on Tenmark's infra (per the open questions list), this cron-secret pattern likely needs rethinking.
+**Auth:** `Authorization: Bearer ${CRON_SECRET}` header — this is a shared-secret check, not a user auth check. Despite the env var's name, this is no longer cron-specific: it's the same secret the manual "Run sync" button in Settings sends as the entered password. There is no automatic scheduler to migrate for this endpoint — confirmed redundant and removed (every screen needing "which loans are unaudited" already queries Metabase live, never depended on this sync's output).
 
 ---
 

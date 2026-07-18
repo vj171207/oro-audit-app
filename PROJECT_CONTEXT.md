@@ -86,7 +86,7 @@ All of the following have been built, and — importantly — **actually tested*
 
 ## 7. Known open bugs (not yet fixed — check before assuming these are handled)
 
-- **§8.1 — IST/UTC timezone gap:** the nightly sync cron's "today" calculation is wrong for a ~5.5 hour window (12:00 AM–5:30 AM IST). Demonstrated by `tests/timezone-gap.test.js` but not yet fixed.
+- **§8.1 — IST/UTC timezone gap:** the "today" calculation used by the sync (`api/sync-loans.js`, now manually-triggered only — the automatic cron was removed) and by the Tare Weight daily counters is wrong for a ~5.5 hour window (12:00 AM–5:30 AM IST). Demonstrated by `tests/timezone-gap.test.js` but not yet fixed.
 - **§8.4 — All Audits count blank for old imports:** `countAudit` is missing on some older imported ornament records; a fallback (`countAudit ?? count`) exists in re-audit logic but not in the detail modal display.
 - **§8.2 — no concurrency protection on Tare Weight saves:** low-probability race condition, not yet addressed.
 - **§8.6/§8.7 — specific loan data issues** (`TCGL31241368`, `TCGL31290410` vault-recoverable; `TCGL31554417`, `TCGL31575276` have permanently lost original TW values) — data issues, not code bugs.

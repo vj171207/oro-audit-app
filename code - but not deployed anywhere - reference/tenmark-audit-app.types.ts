@@ -167,8 +167,9 @@ export interface Audit {
   /** Real save timestamp, set at submit time. Distinct from `date`. */
   submittedAt: string;
 
-  /** Only present on placeholder docs auto-created by the nightly Metabase
-   *  sync cron, before any real audit has been performed. Always the
+  /** Only present on placeholder docs auto-created by the Metabase sync
+   *  (manual-trigger only as of this writing — no automatic cron), before
+   *  any real audit has been performed. Always the
    *  literal string 'metabase-sync' when present. */
   source?: 'metabase-sync';
 
@@ -200,7 +201,8 @@ export interface AppSettings {
   /** ISO timestamp, set whenever settings are saved. */
   updatedAt: string;
 
-  /** ISO timestamp, set by the nightly Metabase sync cron. */
+  /** ISO timestamp, set whenever the sync runs (manual-trigger only as of
+   *  this writing — no automatic cron). */
   lastSyncAt?: string;
 
   /** Drives the manager-only sync-failure banner on login. */

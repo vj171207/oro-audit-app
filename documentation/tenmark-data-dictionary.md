@@ -31,7 +31,7 @@ The core collection. One document per audit performed — but see the **duplicat
 | `newPacketId` | string | New Audit submit | Freeform, blank means "unchanged." Not mandatory. |
 | `ornaments` | array of objects | New Audit submit | See **Ornament object shape** below. |
 | `submittedAt` | ISO timestamp string | New Audit submit | Set at save time, distinct from `date` (which can be backdated). |
-| `source` | string | Metabase sync only | Only present on placeholder docs, always `'metabase-sync'` — marks a doc that was auto-created by the nightly cron and has not yet had a real audit performed. |
+| `source` | string | Metabase sync only | Only present on placeholder docs, always `'metabase-sync'` — marks a doc that was auto-created by the sync (manual-trigger only as of this writing — the automatic cron was removed as redundant) and has not yet had a real audit performed. |
 | `syncedAt` | ISO timestamp string | Metabase sync only | Present only on placeholder docs. |
 
 ### Ornament object shape (nested inside `audits.ornaments[]`)
@@ -73,7 +73,7 @@ Single document, hardcoded ID `config`. Acts as global app configuration — not
 | `settingsPassword` | string | Gates the Settings screen — a shared password, not per-user auth. **Flag for migration:** this is a plaintext-adjacent shared secret; worth deciding whether this concept survives integration at all, especially given the auth-simplification direction being discussed (dashboard login may replace this entirely). |
 | `branches` | array of strings | Manager-registered branch list, used for filtering across Tare Weight / All Audits. |
 | `updatedAt` | ISO timestamp string | Set whenever settings are saved. |
-| `lastSyncAt` | ISO timestamp string | Set by the nightly Metabase sync cron — displayed in Settings info panel. |
+| `lastSyncAt` | ISO timestamp string | Set whenever the sync runs (manual-trigger only as of this writing — no automatic cron anymore) — displayed in Settings info panel. |
 | `lastSyncStatus` | string (`'success'` / `'completed_with_errors'`) | Drives the manager-only sync-failure banner on login. |
 | `lastSyncFailureCount` | number | How many loans failed to sync, shown in the failure banner. |
 

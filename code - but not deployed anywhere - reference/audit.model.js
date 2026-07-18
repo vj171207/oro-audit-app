@@ -106,7 +106,8 @@ class Audit extends Model {
         source: {
           type: DataTypes.ENUM('metabase-sync'),
           allowNull: true,
-          // Only present on nightly-sync placeholder rows not yet audited.
+          // Only present on sync placeholder rows not yet audited (sync is
+          // manual-trigger only — no automatic cron).
         },
         syncedAt: { type: DataTypes.DATE, allowNull: true },
       },

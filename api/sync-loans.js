@@ -1,5 +1,10 @@
 // api/sync-loans.js
-// Vercel cron job — runs daily at 9 AM IST (3:30 AM UTC)
+// Manually triggered sync — no longer runs on an automatic schedule (the
+// Vercel cron trigger was removed; see vercel.json). Triggered today only
+// via the "Run sync" button in Settings (app.js's runSync()), which sends
+// the shared secret as a Bearer token in the Authorization header — the
+// endpoint itself doesn't distinguish between "a cron called this" and
+// "a manager clicked a button," it only checks the token.
 // Queries Metabase for all active loans, adds any new ones to Firestore
 
 const METABASE_URL = 'https://oro.metabaseapp.com';
@@ -156,14 +161,17 @@ async function addLoanToFirestore(token, loan) {
 }
 
 export default async function handler(req, res) {
-  // Security check — only allow Vercel cron calls
+  // Security check — shared-secret auth (CRON_SECRET). Despite the name,
+  // this is no longer cron-specific: it's the same check used by the
+  // manual "Run sync" button in Settings. Anyone with the correct secret
+  // can call this, whether that's an automated trigger or a person.
   const authHeader = req.headers.authorization;
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    console.log('Starting daily loan sync...');
+    console.log('Starting loan sync...');
 
     // 1. Get Firebase token
     const token = await getFirebaseToken();
