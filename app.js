@@ -523,6 +523,16 @@ function showSectionLoadError(err, tbodyId, cols, retryFnName) {
 // ────────────────────────────
 // NEW AUDIT — LOAN LOOKUP
 // ────────────────────────────
+// COMPONENT BOUNDARY (for a future rewrite): this section, through the
+// SUBMIT block further down (search "SUBMIT — SAVES TO FIRESTORE"), is the
+// natural boundary for a single <NewAuditForm> component. It covers: loan
+// ID entry (handleFetch), ops-data display (populateOpsCard/setOpsFields),
+// ornament entry/editing (renderAllOrnamentCards and related), the 4-step
+// indicator (setStep), and final submission (handleSubmit). State it
+// currently owns via module-level variables that a rewrite would need to
+// bring into the component's own state: currentLoanId,
+// currentLoanBookingDate, currentLoanAmount, currentOrnaments,
+// currentOrnamentIndex, auditedOrnaments.
 document.getElementById('loan-id-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') handleFetch();
 });
@@ -1319,6 +1329,16 @@ function startNextAudit() {
 // ────────────────────────────
 // TEAR WEIGHT TABLE
 // ────────────────────────────
+// COMPONENT BOUNDARY (for a future rewrite): this section is the natural
+// boundary for a <TareWeightLedger> component — covers the summary chips
+// (remaining/completed/matched/flagged), the branch/status filter bar, the
+// paginated table itself, and the per-row TW input + save action. The pure
+// compute functions just above (computeAuditedLoansForTW, sortTWLoans,
+// computeTWCounters) are already framework-agnostic and can be reused
+// as-is — only renderTWTable's DOM-writing needs to be redone as JSX.
+// State to bring into the component: twFilter, twCurrentValues,
+// twCurrentPage. (NOTE: "TEAR" above is a pre-existing typo for "TARE" —
+// left as-is here since this comment is annotation-only, not a code fix.)
 const TW_PAGE_SIZE = 15;
 let twCurrentPage = 0;
 
@@ -1678,6 +1698,17 @@ function hasDeviation(audit, type) {
 // ────────────────────────────
 // ALL AUDITS
 // ────────────────────────────
+// COMPONENT BOUNDARY (for a future rewrite): this section is the natural
+// boundary for an <AllAuditsTable> component — covers the summary cards
+// (Total/Excess/Spurious/Clean/Active), the filter bar (loan ID, branch,
+// auditor, deviation, loan status, date range), the paginated results
+// table, and the "Load more" control. The pure compute functions just
+// below (computeDedupedAudits, computeAllAuditsSummaryCounts,
+// filterAllAudits) are already framework-agnostic and can be reused
+// as-is — only renderAllAudits's DOM-writing needs to be redone as JSX.
+// State to bring into the component: allAuditsRenderedCount, and
+// window._lastFilteredAudits (currently a global used for report
+// generation — would need a proper prop/context path in a rewrite).
 // ── Pure compute functions for the All Audits table ──
 // Extracted from renderAllAudits() below with NO change in behavior — same
 // inputs produce the exact same outputs as before. Mirrors the same split
@@ -2250,6 +2281,17 @@ async function removeUser(docId, email) {
 // ────────────────────────────
 // SETTINGS
 // ────────────────────────────
+// COMPONENT BOUNDARY (for a future rewrite): this section, together with
+// USER MANAGEMENT and BRANCH MANAGEMENT just above/below it, forms the
+// natural boundary for a <SettingsPanel> component (likely with tabs or
+// sub-sections for General/Users/Branches). Covers: the shared
+// settingsPassword gate (unlockSettings), pendingDays/twThreshold
+// controls, and the settings-save flow. FLAG: settingsPassword itself is a
+// shared-password gate, not per-user auth — worth revisiting entirely if
+// Tenmark's dashboard login ends up covering this app (see migration
+// question list). State to bring into the component: SETTINGS_PASSWORD
+// (module-level today, would become either component state or removed
+// altogether depending on that auth decision).
 function unlockSettings() {
   if (currentUserRole === 'guest') return;
 
