@@ -39,6 +39,26 @@ function logAppError(kind, detail) {
   );
 }
 
+// ── apiRequest: single choke point for all /api/* calls ──
+// Drop-in replacement for the fetch(url, options).then(res => res.json())
+// pattern used everywhere in this file. Behavior is IDENTICAL to what every
+// call site already did — same request, same JSON parsing, same promise
+// shape (resolves to parsed JSON, rejects on network/parse failure exactly
+// like fetch()/res.json() would have). No error-handling logic was moved
+// here; every call site keeps its own .then()/.catch() or try/catch exactly
+// as before, so nothing about current behavior changes.
+//
+// Why this exists: today every call site independently calls fetch()
+// directly against a hardcoded relative path like '/api/loan-lookup'. When
+// this app is integrated elsewhere (e.g. base URL changes, or auth headers
+// like a JWT need to be attached to every request), there is currently no
+// single place to make that change — it would mean editing 9 separate call
+// sites. Routing every call through this one function means that future
+// change happens in exactly one place.
+function apiRequest(path, options) {
+  return fetch(path, options).then(res => res.json());
+}
+
 // ── Error popup (toast) ──
 // Shows a small, dismissible notice in the top-right corner. Multiple
 // errors stack rather than replace each other. Auto-dismisses after 10s,
@@ -139,8 +159,7 @@ let allAuditsRenderedCount = ALL_AUDITS_PAGE_SIZE;
 let activeLoanIds = new Set();
 
 function loadActiveLoans() {
-  return fetch('/api/active-loans')
-    .then(res => res.json())
+  return apiRequest('/api/active-loans')
     .then(data => {
       if (data.error) throw new Error(data.error);
       activeLoanIds = new Set((data.loans || []).map(l => l.loanNumber));
@@ -361,10 +380,9 @@ function runSync() {
   btn.disabled = true;
   document.getElementById('sync-result').innerHTML = '<span style="color:var(--text-3);">Querying Metabase for new loans...</span>';
 
-  fetch('/api/sync-loans', {
+  apiRequest('/api/sync-loans', {
     headers: { 'Authorization': `Bearer ${password}` }
   })
-    .then(res => res.json())
     .then(data => {
       if (data.error === 'Unauthorized') {
         document.getElementById('sync-result').innerHTML = '<span style="color:var(--danger);">❌ Incorrect password.</span>';
@@ -522,8 +540,7 @@ function loadUnauditedLoans() {
   );
 
   // Query Metabase live for all active loans
-  fetch('/api/active-loans')
-    .then(res => res.json())
+  apiRequest('/api/active-loans')
     .then(data => {
       document.getElementById('unaudited-loading').style.display = 'none';
 
@@ -623,8 +640,7 @@ function browseLoans() {
   hint.style.color = 'var(--text-3)';
 
   // Query Metabase via loan-lookup API for loans in date range
-  fetch(`/api/browse-loans?from=${from}&to=${to}`)
-    .then(res => res.json())
+  apiRequest(`/api/browse-loans?from=${from}&to=${to}`)
     .then(data => {
       if (data.error) {
         hint.textContent = 'Error: ' + data.error;
@@ -715,8 +731,7 @@ function handleFetch() {
   if (id === DEMO_LOAN_ID) { populateOpsCard(id, DEMO_OPS_DATA); return; }
 
   // ── METABASE LIVE LOOKUP ──
-  fetch(`/api/loan-lookup?loanId=${encodeURIComponent(id)}`)
-    .then(res => res.json())
+  apiRequest(`/api/loan-lookup?loanId=${encodeURIComponent(id)}`)
     .then(data => {
       if (data.error) {
         hint.textContent = data.error === 'Loan not found'
@@ -1307,9 +1322,19 @@ function startNextAudit() {
 const TW_PAGE_SIZE = 15;
 let twCurrentPage = 0;
 
-function renderTWTable(search = '', filter = twFilter) {
-  // Only show loans that have a tare weight recorded — properly audited
-  // Deduplicate by loan ID — keep most recent audit per loan
+// ── Pure compute functions for the Tare Weight table ──
+// Extracted from renderTWTable() below with NO change in behavior — same
+// inputs produce the exact same outputs as before. This separates "what
+// loans to show, in what order, and what the summary counts are" (pure
+// logic, no DOM) from "how to draw that on screen" (renderTWTable itself).
+// Two direct benefits: these functions can now be unit-tested on their own
+// (see tests/tw-counters-compute.test.js), and if the UI is ever rebuilt in
+// a different framework, only the rendering needs to be redone — these
+// rules don't need to be re-derived or re-verified from scratch.
+
+function computeAuditedLoansForTW(auditStore, activeLoanIds) {
+  // Only show loans that have a tare weight recorded — properly audited.
+  // Deduplicate by loan ID — keep most recent audit per loan.
   const audited = auditStore.filter(a => a.tw !== null && a.tw !== undefined && a.source !== 'metabase-sync' && activeLoanIds.has(a.loanId));
   const loanMap = {};
   audited.forEach(a => {
@@ -1317,14 +1342,17 @@ function renderTWTable(search = '', filter = twFilter) {
       loanMap[a.loanId] = a;
     }
   });
+  return Object.values(loanMap);
+}
+
+function sortTWLoans(loans, todayStr) {
   // Loans whose tare weight was already re-checked TODAY sink to the very
   // bottom of the list, below everything else — regardless of original
   // audit date. This uses twUpdatedAt, which is saved to Firestore the
   // moment "Save" succeeds, so it survives a refresh, a crash, or logging
   // back in later — not just an in-memory flag that would reset and
   // confuse the auditor if the browser hiccups mid-session.
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const loans = Object.values(loanMap).sort((a, b) => {
+  return [...loans].sort((a, b) => {
     const aDoneToday = !!(a.twUpdatedAt && a.twUpdatedAt.slice(0, 10) === todayStr);
     const bDoneToday = !!(b.twUpdatedAt && b.twUpdatedAt.slice(0, 10) === todayStr);
     if (aDoneToday !== bDoneToday) return aDoneToday ? 1 : -1;
@@ -1346,15 +1374,16 @@ function renderTWTable(search = '', filter = twFilter) {
     if (!b.loanBookingDate) return 1;
     return (a.loanBookingDate || '').localeCompare(b.loanBookingDate || '');
   });
+}
+
+function computeTWCounters(loans, twCurrentValues, todayStr, twThreshold, getLoanStatusFn) {
   const checked = Object.keys(twCurrentValues).length;
   const flagged = Object.entries(twCurrentValues).filter(([id, v]) => {
     const a = loans.find(x => x.loanId === id);
-    return a && a.tw != null && Math.abs(v - a.tw) > TW_THRESHOLD;
+    return a && a.tw != null && Math.abs(v - a.tw) > twThreshold;
   }).length;
   const matched = checked - flagged;
-
-  const pendingCount = loans.filter(a => getLoanStatus(a.loanId) === 'pending').length;
-
+  const pendingCount = loans.filter(a => getLoanStatusFn(a.loanId) === 'pending').length;
   // Progress counter — deliberately NOT a manual "start/end session" toggle.
   // completedToday/remainingToday are derived fresh from twUpdatedAt every
   // single render, straight from Firestore-backed data (loaded via
@@ -1364,6 +1393,14 @@ function renderTWTable(search = '', filter = twFilter) {
   // because nothing was ever being "remembered" client-side to lose.
   const completedToday = loans.filter(a => a.twUpdatedAt && a.twUpdatedAt.slice(0, 10) === todayStr).length;
   const remainingToday = loans.length - completedToday;
+  return { checked, flagged, matched, pendingCount, completedToday, remainingToday };
+}
+
+function renderTWTable(search = '', filter = twFilter) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const loans = sortTWLoans(computeAuditedLoansForTW(auditStore, activeLoanIds), todayStr);
+  const { checked, flagged, matched, pendingCount, completedToday, remainingToday } =
+    computeTWCounters(loans, twCurrentValues, todayStr, TW_THRESHOLD, getLoanStatus);
 
   document.getElementById('tw-stat-row').innerHTML = `
     <div class="stat-chip">${loans.length} loan${loans.length !== 1 ? 's' : ''}</div>
@@ -1818,12 +1855,11 @@ async function generateTWReport() {
   let gwFetchFailed = false;
   try {
     const loanIds = data.map(a => a.loanId);
-    const res = await fetch('/api/tw-gross-weight', {
+    const result = await apiRequest('/api/tw-gross-weight', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ loanIds })
     });
-    const result = await res.json();
     if (result.error) throw new Error(result.error);
     gwByLoanId = result.gwByLoanId || {};
     if (result.failedBatches) {
@@ -2143,12 +2179,11 @@ async function addUser() {
 
   try {
     const callerToken = await auth.currentUser.getIdToken();
-    const res = await fetch('/api/create-user', {
+    const data = await apiRequest('/api/create-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, role, callerToken })
     });
-    const data = await res.json();
 
     if (data.error) {
       statusEl.textContent = '❌ ' + data.error;
@@ -2175,12 +2210,11 @@ async function removeUser(docId, email) {
   if (!confirm(`Remove ${email}? They will lose app access.`)) return;
   try {
     const callerToken = await auth.currentUser.getIdToken();
-    const res = await fetch('/api/remove-user', {
+    const data = await apiRequest('/api/remove-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ docId, callerToken })
     });
-    const data = await res.json();
     if (data.error) throw new Error(data.error);
     loadUsersList();
   } catch(err) {
@@ -2360,12 +2394,11 @@ async function resetUserPassword(email) {
   if (newPwd.length < 6) { showErrorPopup('Password too short', 'Password must be at least 6 characters.'); return; }
   try {
     const callerToken = await auth.currentUser.getIdToken();
-    const res = await fetch('/api/reset-password', {
+    const data = await apiRequest('/api/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, newPassword: newPwd, callerToken })
     });
-    const data = await res.json();
     if (data.error) {
       showErrorPopup('Couldn\'t reset password', `Failed to reset password for ${email}.`, data.error);
       return;
