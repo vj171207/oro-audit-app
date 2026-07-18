@@ -1678,8 +1678,19 @@ function hasDeviation(audit, type) {
 // ────────────────────────────
 // ALL AUDITS
 // ────────────────────────────
-function renderAllAudits(search = '') {
-  // Deduplicate by loan ID — keep most recent audit per loan
+// ── Pure compute functions for the All Audits table ──
+// Extracted from renderAllAudits() below with NO change in behavior — same
+// inputs produce the exact same outputs as before. Mirrors the same split
+// already done for the Tare Weight table (see computeAuditedLoansForTW /
+// sortTWLoans / computeTWCounters above): "which audits to show and what
+// the summary counts are" (pure logic, no DOM) is now separate from "how to
+// draw that on screen" (renderAllAudits itself). Testable on its own (see
+// tests/all-audits-compute.test.js), and reusable as-is if the UI is ever
+// rebuilt in a different framework.
+
+function computeDedupedAudits(auditStore) {
+  // Deduplicate by loan ID — keep most recent audit per loan. Metabase-sync
+  // placeholder docs (not yet actually audited) are excluded entirely.
   const loanMapAll = {};
   auditStore.forEach(a => {
     if (a.source === 'metabase-sync') return;
@@ -1687,13 +1698,35 @@ function renderAllAudits(search = '') {
       loanMapAll[a.loanId] = a;
     }
   });
-  const deduped = Object.values(loanMapAll);
+  return Object.values(loanMapAll);
+}
+
+function computeAllAuditsSummaryCounts(deduped, activeLoanIds) {
   const total = deduped.length;
   const excess = deduped.filter(a => a.excessFunding === 'Yes' && activeLoanIds.has(a.loanId)).length;
   const spurious = deduped.filter(a => a.spurious === 'Yes' && activeLoanIds.has(a.loanId)).length;
   const clean = deduped.filter(a => a.excessFunding === 'No' && a.spurious === 'No').length;
-
   const activeAudited = deduped.filter(a => activeLoanIds.has(a.loanId)).length;
+  return { total, excess, spurious, clean, activeAudited };
+}
+
+function filterAllAudits(deduped, filters, activeLoanIds) {
+  return deduped.filter(a => {
+    if (filters.loanIdFilter && !a.loanId.toLowerCase().includes(filters.loanIdFilter)) return false;
+    if (filters.branchFilter && a.branch !== filters.branchFilter) return false;
+    if (filters.auditorFilter && a.auditor !== filters.auditorFilter) return false;
+    if (filters.deviationFilter && !hasDeviation(a, filters.deviationFilter)) return false;
+    if (filters.loanStatusFilter === 'active' && !activeLoanIds.has(a.loanId)) return false;
+    if (filters.loanStatusFilter === 'inactive' && activeLoanIds.has(a.loanId)) return false;
+    if (filters.dateFrom && a.date < filters.dateFrom) return false;
+    if (filters.dateTo && a.date > filters.dateTo) return false;
+    return true;
+  });
+}
+
+function renderAllAudits(search = '') {
+  const deduped = computeDedupedAudits(auditStore);
+  const { total, excess, spurious, clean, activeAudited } = computeAllAuditsSummaryCounts(deduped, activeLoanIds);
   const cards = document.getElementById('summary-grid').querySelectorAll('.sc-value');
   cards[0].textContent = total;
   cards[1].textContent = excess;
@@ -1702,25 +1735,17 @@ function renderAllAudits(search = '') {
   if (cards[4]) cards[4].textContent = activeAudited;
 
   // Read filter values
-  const loanIdFilter = (document.getElementById('rf-loanid')?.value || '').toLowerCase();
-  const branchFilter = document.getElementById('rf-branch')?.value || '';
-  const auditorFilter = document.getElementById('rf-auditor')?.value || '';
-  const deviationFilter = document.getElementById('rf-deviation')?.value || '';
-  const loanStatusFilter = document.getElementById('rf-loanstatus')?.value || '';
-  const dateFrom = document.getElementById('rf-date-from')?.value || '';
-  const dateTo = document.getElementById('rf-date-to')?.value || '';
+  const filters = {
+    loanIdFilter: (document.getElementById('rf-loanid')?.value || '').toLowerCase(),
+    branchFilter: document.getElementById('rf-branch')?.value || '',
+    auditorFilter: document.getElementById('rf-auditor')?.value || '',
+    deviationFilter: document.getElementById('rf-deviation')?.value || '',
+    loanStatusFilter: document.getElementById('rf-loanstatus')?.value || '',
+    dateFrom: document.getElementById('rf-date-from')?.value || '',
+    dateTo: document.getElementById('rf-date-to')?.value || '',
+  };
 
-  const filtered = deduped.filter(a => {
-    if (loanIdFilter && !a.loanId.toLowerCase().includes(loanIdFilter)) return false;
-    if (branchFilter && a.branch !== branchFilter) return false;
-    if (auditorFilter && a.auditor !== auditorFilter) return false;
-    if (deviationFilter && !hasDeviation(a, deviationFilter)) return false;
-    if (loanStatusFilter === 'active' && !activeLoanIds.has(a.loanId)) return false;
-    if (loanStatusFilter === 'inactive' && activeLoanIds.has(a.loanId)) return false;
-    if (dateFrom && a.date < dateFrom) return false;
-    if (dateTo && a.date > dateTo) return false;
-    return true;
-  });
+  const filtered = filterAllAudits(deduped, filters, activeLoanIds);
 
   // Update result count and wire up report button
   const countEl = document.getElementById('rf-result-count');
